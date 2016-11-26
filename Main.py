@@ -2,8 +2,8 @@ import sys
 from Encoder import *
 
 def satPlan(argv):
-	encoder = Encoder()
-	sentenceSAT = encoder.generateSentence(argv)
+	encoder = Encoder(argv)
+	sentenceSAT = encoder.generateSentence()
     
 
 
