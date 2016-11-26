@@ -6,6 +6,15 @@ def getFunctionNameTerms(f_string):
 	term=terms.strip(" ").split(',')
 	return [name,term]
 
+def templateNameCreator(f_name,n_terms):
+	template_name=f_name+"("
+
+	for i in xrange(1,n_terms):
+		if i!=n_terms:
+			template_name+="$x"+str(i)+"$,"
+		else:
+			template_name+="$x"+str(i)+"$)"
+	return template_name
 
 class Encoder(object):
 	"""docstring for Encoder"""
