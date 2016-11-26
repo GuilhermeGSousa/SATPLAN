@@ -1,3 +1,5 @@
+from GroundedLiteral import *
+
 def getFunctionNameTerms(f_string):
 	i_first=f_string.index("(")
 	i_last=f_string.index(")")
@@ -9,28 +11,54 @@ def getFunctionNameTerms(f_string):
 def templateNameCreator(f_name,n_terms):
 	template_name=f_name+"("
 
-	for i in xrange(1,n_terms):
+	for i in range(1,n_terms):
 		if i!=n_terms:
 			template_name+="$x"+str(i)+"$,"
 		else:
 			template_name+="$x"+str(i)+"$)"
 	return template_name
+def groundedLiteralNameGenerator(f_name,terms):
+	name=f_name + "("
 
+	for i in range(0,len(terms)):
+		if i!=len(terms)-1:
+			name+=terms[i]+","
+		else:
+			name+=terms[i]+")"
+	return name
 class Encoder(object):
 	"""docstring for Encoder"""
 
 
 
 	def __init__(self,argv):
+		#Lists of initial and goal literals
+		self.init_lit=[]
+		self.goal_lit=[]
+		self.terms_list=[]
+
 		f=open(argv[1],'r')
 		for line in f:
 			words=line.strip("\n").split()
 
 			if line[0]=='I':
 				for arg in words[1:]:
-					name,terms = getFunctionNameTerms(arg)		
+					name,terms = getFunctionNameTerms(arg)
+					
 					#USE name and terms list here
-					print(name,terms)
+					for t in terms:
+						if not (t in self.terms_list):
+							self.terms_list.append(t)
+
+					if name[0]=="-":
+						signal=False
+						name=name[1:]
+					else:
+						signal=True
+					ident = groundedLiteralNameGenerator(name,terms)
+					print(ident)
+					g_lit = GroundedLiteral(ident,signal)
+					self.init_lit.append
 
 			if line[0]=='A':
 				
@@ -56,7 +84,20 @@ class Encoder(object):
 				for arg in words[1:]:
 					name,terms = getFunctionNameTerms(arg)		
 					#USE name and terms list here
-					print(name,terms)
+					for t in terms:
+						if not (t in self.terms_list):
+							self.terms_list.append(t)
+
+					if name[0]=="-":
+						signal=False
+						name=name[1:]
+					else:
+						signal=True
+					ident = groundedLiteralNameGenerator(name,terms)
+					print(ident)
+					g_lit = GroundedLiteral(ident,signal)
+					self.goal_lit.append
+
 
 	def generateSentence(self):
 		pass
