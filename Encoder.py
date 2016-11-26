@@ -8,15 +8,21 @@ def getFunctionNameTerms(f_string):
 	term=terms.strip(" ").split(',')
 	return [name,term]
 
-def templateNameCreator(f_name,n_terms):
+def templateNameCreator(f_name,terms):
 	template_name=f_name+"("
-
-	for i in range(1,n_terms):
-		if i!=n_terms:
-			template_name+="$x"+str(i)+"$,"
+	for i in range(0,len(terms)):
+		if i!=len(terms)-1:
+			if not terms[i][0].isupper():
+				template_name+="$"+terms[i]+"$,"
+			else:
+				template_name+=terms[i]+","
 		else:
-			template_name+="$x"+str(i)+"$)"
+			if not terms[i][0].isupper():
+				template_name+="$"+terms[i]+"$)"
+			else:
+				template_name+=terms[i]+")"
 	return template_name
+
 def groundedLiteralNameGenerator(f_name,terms):
 	name=f_name + "("
 
@@ -32,9 +38,9 @@ class Encoder(object):
 
 
 	def __init__(self,argv):
-		#Lists of initial and goal literals
-		self.init_lit=[]
-		self.goal_lit=[]
+		#Lists of initial and goal literals (GROUNDED)
+		self.init=[]
+		self.goals=[]
 		self.terms_list=[]
 
 		f=open(argv[1],'r')
@@ -56,9 +62,8 @@ class Encoder(object):
 					else:
 						signal=True
 					ident = groundedLiteralNameGenerator(name,terms)
-					print(ident)
 					g_lit = GroundedLiteral(ident,signal)
-					self.init_lit.append
+					self.init.append(g_lit)
 
 			if line[0]=='A':
 				
@@ -69,16 +74,16 @@ class Encoder(object):
 				effect_part=line[i_arrow+1:].strip("\n").split(" ")
 
 				action_name,action_terms = getFunctionNameTerms(action_part)
-				print(action_name,action_terms)
+				print(templateNameCreator(action_name,action_terms))
 				#USE ACTION name and terms list here
 				for arg in precond_part:
 					if arg!="":
 						precond_name,precond_terms = getFunctionNameTerms(arg)
-						print(precond_name,precond_terms)
+						print(templateNameCreator(precond_name,precond_terms))
 				for arg in effect_part:
 					if arg!="":
 						effect_name,effect_terms = getFunctionNameTerms(arg)
-						print(effect_name,effect_terms)
+						print(templateNameCreator(effect_name,effect_terms))
 
 			if line[0]=='G':
 				for arg in words[1:]:
@@ -94,9 +99,10 @@ class Encoder(object):
 					else:
 						signal=True
 					ident = groundedLiteralNameGenerator(name,terms)
-					print(ident)
+					
 					g_lit = GroundedLiteral(ident,signal)
-					self.goal_lit.append
+					self.goals.append(g_lit)
+
 
 
 	def generateSentence(self):
