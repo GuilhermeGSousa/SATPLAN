@@ -3,7 +3,8 @@ class GroundedLiteral(object):
 
     def __init__(self, ident, signal):
         self.ident = ident # string describing the literal
-        self.signal = signal #positive or negative
+        self.signal = signal #Negated (False) or not negated (True) 
+
         self.value = None # true or false
 
 
