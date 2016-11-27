@@ -1,17 +1,16 @@
-from Atom import *
 
-
-class Action(Atom):
-    def __init__(self, name_template):
-        Atom.__init__(self, name_template)
+class Action():
+    def __init__(self, name_template,args):
+        self.name_template = name_template
+        self.args = args
         self.efx = [] # lists of Atoms
         self.precond =[]
 
-    def addPreCondition(self, literal):
-        self.precond.append([literal])
+    def addPreCondition(self, atom):
+        self.precond.append([atom])
 
-    def addEffect(self,literal):
-        self.efx.append([literal])
+    def addEffect(self,atom):
+        self.efx.append([atom])
 
 
 
