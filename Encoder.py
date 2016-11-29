@@ -3,6 +3,7 @@ from Action import *
 from Atom import *
 import copy
 import string
+import time
 
 
 def getFunctionNameTerms(f_string):
@@ -19,12 +20,12 @@ def templateNameCreator(f_name, terms):
     for i in range(0, len(terms)):
         if i != len(terms) - 1:
             if not terms[i][0].isupper():
-                template_name += "$" + terms[i] + "," #+ "$,"
+                template_name += "$" + terms[i] + ","  # + "$,"
             else:
                 template_name += terms[i] + ","
         else:
             if not terms[i][0].isupper():
-                template_name += "$" + terms[i] + ")" #+ "$)"
+                template_name += "$" + terms[i] + ")"  # + "$)"
             else:
                 template_name += terms[i] + ")"
     return template_name
@@ -55,6 +56,13 @@ def generatePossibleSets(nterms, terms):
         return set
 
 
+def mapAndSubstitute(comb, args, temp):
+    mapping = {}
+    for i, arg in enumerate(args):
+        mapping[arg] = comb[i]
+    ident = string.Template(temp)
+    name = ident.safe_substitute(mapping)
+    return name
 
 
 class Encoder(object):
@@ -63,9 +71,8 @@ class Encoder(object):
     def __init__(self, argv):
         self.init = []  # initial state ground literals
         self.goals = []  # goal state ground literals
-        self.sentence =[] # sentence at time t=h
+        self.sentence = []  # sentence at time t=h
         self.terms_list = []  # constants
-        self.clauses = []  # list of grounder clauses
         self.actions = []  # list of actions
 
         f = open(argv[1], 'r')
@@ -135,75 +142,133 @@ class Encoder(object):
                     g_lit = GroundedLiteral(ident, signal)
                     self.goals.append(g_lit)
 
+    def createIndexedActionLiteral(self, comb, action, sign, t):
+        name = mapAndSubstitute(comb, action.args, action.name_template)
+        action_glit = GroundedLiteral(name, sign)
+        action_glit.indexGL(t)
+        return action_glit
 
+    def initialStateClauses(self):
+        ninit = len(self.init)
+        for i in range(ninit):
+            literal = self.init[i]
+            name, args = getFunctionNameTerms(literal.ident)
+            nargs = len(args)
+            combinations = generatePossibleSets(nargs, self.terms_list)
+            for comb in combinations:
+                flag = False
+                if comb != args:
+                    ident = groundedLiteralNameGenerator(name, comb)
+                    for glit in self.init:
+                        if ident == glit.ident:
+                            flag = True
+                            break
+                    if flag:
+                        continue
+                    else:
+                        g_lit = GroundedLiteral(ident, not literal.signal)
+                        self.init.append(g_lit)
+        for literal in self.init:
+            literal.indexGL(0)
+            self.sentence.append([literal])
 
-
-    def generateSentence(self, t):
-        if t == 0:
-            # First, create unit clauses for the initial state
-            ninit = len(self.init)
-            for i in range(ninit):
-                literal=self.init[i]
-                name, args = getFunctionNameTerms(literal.ident)
-                nargs = len(args)
-                print(args)
-                combinations = generatePossibleSets(nargs,self.terms_list)
-                for comb in combinations:
-                    flag = False
-                    if comb != args:
-                        ident=groundedLiteralNameGenerator(name, comb)
-                        for glit in self.init:
-                            if ident == glit.ident:
-                                flag = True
-                                break
-                        if flag:
-                            continue
-                        else:
-                            g_lit = GroundedLiteral(ident,not literal.signal)
-                            self.init.append(g_lit)
-            for literal in self.init:
-                literal.indexGL(0)
-                self.clauses.append([literal])
-
-        # Goal is reached in time horizon h
-        for literal in self.goals:
-            glit = copy.copy(literal) # copy instead of deepcopy because GroundedLiteral doesnt have objects in it
-            glit.indexGL(t+1)
-            self.sentence.append([glit])
-
-        # Actions imply their preconditions and effects
+    def actionsImplications(self, t):
         for action in self.actions:
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
-                mapping = {}
-                for i, arg in enumerate(action.args):
-                    mapping[arg] = comb[i]
-                ident = string.Template(action.name_template)
-                name=ident.safe_substitute(mapping)
-                action_glit = GroundedLiteral(name,False)
-                action_glit.indexGL(t)
+                aglit = self.createIndexedActionLiteral(comb, action, False, t)
                 for effect in action.efx:
-                    ident = string.Template(effect.ident_template)
-                    name=ident.safe_substitute(mapping)
+                    name = mapAndSubstitute(comb, action.args, effect.ident_template)
                     sign, name = effect.checkSign(name)
                     effect_glit = GroundedLiteral(name, sign)
-                    effect_glit.indexGL(t+1)
-                    self.sentence.append([action_glit,effect_glit])
+                    effect_glit.indexGL(t + 1)
+                    self.sentence.append([aglit, effect_glit])
                 for precond in action.preconds:
-                    ident = string.Template(precond.ident_template)
-                    name=ident.safe_substitute(mapping)
+                    name = mapAndSubstitute(comb, action.args, precond.ident_template)
                     sign, name = precond.checkSign(name)
                     precond_glit = GroundedLiteral(name, sign)
                     precond_glit.indexGL(t)
-                    self.sentence.append([action_glit,precond_glit])
+                    self.sentence.append([aglit, precond_glit])
 
+    def propagateSteadyStates(self, t):
+        for action in self.actions:
+            nargs = len(action.args)
+            combinations = generatePossibleSets(nargs, self.terms_list)
+            for comb in combinations:
+                aglit = self.createIndexedActionLiteral(comb, action, False, t)
+                modified = {}
+                for effect in action.efx:
+                    name = mapAndSubstitute(comb, action.args, effect.ident_template)
+                    name = effect.checkSign(name)[1]
+                    atom_name, terms = getFunctionNameTerms(name)
+                    if atom_name in modified.keys():
+                        modified[atom_name].append(terms)
+                    else:
+                        modified[atom_name] = [terms]
+                for atom_name, list_terms in modified.items():
+                    nargs = len(list_terms[0])
+                    subset = generatePossibleSets(nargs, self.terms_list)
+                    for comb2 in subset:
+                        if comb2 not in list_terms:
+                            name = groundedLiteralNameGenerator(atom_name, comb2)
+                            glit1 = GroundedLiteral(name, False)
+                            glit2 = GroundedLiteral(name, True)
+                            glit1.indexGL(t)
+                            glit2.indexGL(t + 1)
+                            self.sentence.append([aglit, glit1, glit2])
 
+    def oneActionPerTimeStep(self, t):
+        at_least_one = []
+        for action in self.actions:
+            nargs = len(action.args)
+            combinations = generatePossibleSets(nargs, self.terms_list)
+            for comb in combinations:
+                aglit = self.createIndexedActionLiteral(comb, action, True, t)
+                at_least_one.append(aglit)
+        self.sentence.append(at_least_one)
 
+        # At most one action per time step
+        alist = []
+        for action in self.actions:
+            nargs = len(action.args)
+            combinations = generatePossibleSets(nargs, self.terms_list)
+            for comb in combinations:
+                a = self.createIndexedActionLiteral(comb, action, False, t)
+                alist.append(a)
+        for i, a1 in enumerate(alist):
+            for j, a2 in enumerate(alist):
+                if j > i:
+                    self.sentence.append([a2, a1])
 
+    def addGoalStates(self, t):
+        for literal in self.goals:
+            glit = copy.copy(literal)  # copy instead of deepcopy because GroundedLiteral doesnt have objects in it
+            glit.indexGL(t + 1)
+            self.sentence.append([glit])
 
+    def removePreviousGoalStates(self):
+        nlits = len(self.goals)
+        del (self.sentence[-nlits:])
 
+    def generateSentence(self, t):
+        time1=time.time()
+        # First, create unit clauses for the initial state
+        if t == 0:
+            self.initialStateClauses()
+        else:
+            self.removePreviousGoalStates()
 
+        # Actions imply their preconditions and effects
+        self.actionsImplications(t)
+
+        # Atoms not modified by an action are propagated in time
+        self.propagateSteadyStates(t)
+
+        # At least ne action per time step
+        self.oneActionPerTimeStep(t)
+
+        # Goal is reached in time horizon h
+        self.addGoalStates(t)
+        print(time.time()-time1)
         print('something')
-
-
