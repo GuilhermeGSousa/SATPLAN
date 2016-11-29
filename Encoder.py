@@ -2,6 +2,7 @@ from GroundedLiteral import *
 from Action import *
 from Atom import *
 import copy
+import string
 
 
 def getFunctionNameTerms(f_string):
@@ -18,12 +19,12 @@ def templateNameCreator(f_name, terms):
     for i in range(0, len(terms)):
         if i != len(terms) - 1:
             if not terms[i][0].isupper():
-                template_name += "$" + terms[i] + "$,"
+                template_name += "$" + terms[i] + "," #+ "$,"
             else:
                 template_name += terms[i] + ","
         else:
             if not terms[i][0].isupper():
-                template_name += "$" + terms[i] + "$)"
+                template_name += "$" + terms[i] + ")" #+ "$)"
             else:
                 template_name += terms[i] + ")"
     return template_name
@@ -52,6 +53,8 @@ def generatePossibleSets(nterms, terms):
             for i in range(len(subset)):
                 set.append([term] + subset[i])
         return set
+
+
 
 
 class Encoder(object):
@@ -113,7 +116,7 @@ class Encoder(object):
                         new_atom = Atom(template_name, len(effect_terms))
                         new_action.addEffect(new_atom)
                         print(template_name)
-                self.actions.append([new_action])
+                self.actions.append(new_action)
 
             if line[0] == 'G':
                 for arg in words[1:]:
@@ -132,8 +135,11 @@ class Encoder(object):
                     g_lit = GroundedLiteral(ident, signal)
                     self.goals.append(g_lit)
 
-    def generateSentence(self, h):
-        if h == 0:
+
+
+
+    def generateSentence(self, t):
+        if t == 0:
             # First, create unit clauses for the initial state
             ninit = len(self.init)
             for i in range(ninit):
@@ -143,10 +149,18 @@ class Encoder(object):
                 print(args)
                 combinations = generatePossibleSets(nargs,self.terms_list)
                 for comb in combinations:
+                    flag = False
                     if comb != args:
                         ident=groundedLiteralNameGenerator(name, comb)
-                        g_lit = GroundedLiteral(ident,not literal.signal)
-                        self.init.append(g_lit)
+                        for glit in self.init:
+                            if ident == glit.ident:
+                                flag = True
+                                break
+                        if flag:
+                            continue
+                        else:
+                            g_lit = GroundedLiteral(ident,not literal.signal)
+                            self.init.append(g_lit)
             for literal in self.init:
                 literal.indexGL(0)
                 self.clauses.append([literal])
@@ -154,8 +168,41 @@ class Encoder(object):
         # Goal is reached in time horizon h
         for literal in self.goals:
             glit = copy.copy(literal) # copy instead of deepcopy because GroundedLiteral doesnt have objects in it
-            glit.indexGL(h)
+            glit.indexGL(t+1)
             self.sentence.append([glit])
+
+        # Actions imply their preconditions and effects
+        for action in self.actions:
+            nargs = len(action.args)
+            combinations = generatePossibleSets(nargs, self.terms_list)
+            for comb in combinations:
+                mapping = {}
+                for i, arg in enumerate(action.args):
+                    mapping[arg] = comb[i]
+                ident = string.Template(action.name_template)
+                name=ident.safe_substitute(mapping)
+                action_glit = GroundedLiteral(name,False)
+                action_glit.indexGL(t)
+                for effect in action.efx:
+                    ident = string.Template(effect.ident_template)
+                    name=ident.safe_substitute(mapping)
+                    sign, name = effect.checkSign(name)
+                    effect_glit = GroundedLiteral(name, sign)
+                    effect_glit.indexGL(t+1)
+                    self.sentence.append([action_glit,effect_glit])
+                for precond in action.preconds:
+                    ident = string.Template(precond.ident_template)
+                    name=ident.safe_substitute(mapping)
+                    sign, name = precond.checkSign(name)
+                    precond_glit = GroundedLiteral(name, sign)
+                    precond_glit.indexGL(t)
+                    self.sentence.append([action_glit,precond_glit])
+
+
+
+
+
+
 
         print('something')
 
