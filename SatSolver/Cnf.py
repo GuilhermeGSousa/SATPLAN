@@ -19,7 +19,7 @@ class Variable(object):
 		return (isinstance(other,self.__class__)) and other.name==self.name and other.signal==self.signal
 
 	def __hash__(self):
-		return hash(self.name + str(self.signal))
+		return hash(str(self.name) + str(self.signal))
 
 
 class CNF(object):
@@ -43,20 +43,21 @@ def readCnf(file_name):
 			continue
 		if line[0]=='p':
 			words=line.strip("\n").split()
-			for i in range(0,int(words[2])):
+			for i in range(1,int(words[2])+1):
 				symbols.append(i)
 				#What to do with clauses number?
 		else:
-			words=line.strip("\n").split()
-			obj_list=[]
-			for w in words:
-				if w !="0":
-					if w[0]=="-":
-						obj_list.append(Variable(w[1:],False))
-					else:
-						obj_list.append(Variable(w,True))
+			if(line!="\n"):
+				words=line.strip("\n").split()
+				obj_list=[]
+				for w in words:
+					if w !="0":
+						if w[0]=="-":
+							obj_list.append(Variable(int(w[1:]),False))
+						else:
+							obj_list.append(Variable(int(w),True))
 
-			clauses.add(frozenset(obj_list))
+				clauses.add(frozenset(obj_list))
 	f.close()
 
 	return [clauses, symbols]

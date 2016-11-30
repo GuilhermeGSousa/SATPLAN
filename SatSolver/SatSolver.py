@@ -6,11 +6,12 @@ import copy
 
 def isEveryClauseTrue(clauses,model):
 	for c in clauses:
-		list_assigned=[l.name for l in c if l.name in model.var_sol.keys()]
 		clauseFalse=True
-		for l in list_assigned:
-			if model[l.name]==l.signal:
-				clauseFalse=False
+		for l in c:
+			if l.name in model.var_sol.keys():
+				if model[l.name]==l.signal:
+					clauseFalse=False
+
 		if clauseFalse==True:
 			return False
 	return True
@@ -22,23 +23,36 @@ def isAnyClauseFalse(clauses,model):
 				return False
 			else:
 				clauseFalse=True
-				for l in list_assigned:
-					if model[l.name]==l.signal:
-						clauseFalse=False
+				if model[l.name]==l.signal:
+					clauseFalse=False
 				if clauseFalse==True:
 					return True
 	return False				
 
 def isPureSymbol(clauses,symb):
+	isPure=False
+	currentSignal=None
 	for c in clauses:
-		pass
+		for l in c:
+			if l.name==symb:
+				if currentSignal==None:
+					currentSignal=l.signal
+				elif currentSignal!=l.signal:
+					return [False, None]
+	return [True,currentSignal]
 
-def isUnitClause(clauses,symb):
+
+
+def isUnitClause(clauses,symb,model):
 	for c in clauses:
-		pass
+		list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
+		if len(list_unassigned)==1 and list_unassigned[0].name==symb:
+			return [True , list_unassigned[0].signal]
+	return [False, None]
 
 
 def solveCNF(clauses,symbols,model=Solution()):
+
 
 	if isEveryClauseTrue(clauses,model):
 		print("All True")
@@ -52,13 +66,16 @@ def solveCNF(clauses,symbols,model=Solution()):
 
 		res, val = isPureSymbol(clauses,symbols[i])
 		if res:
+			print("isPure")
 			model[symbols.pop(i)]=val
 			return solveCNF(clauses,symbols,model)
 
-		res, val = isUnitClause(clauses,symbols[i])
+		res, val = isUnitClause(clauses,symbols[i],model)
 		if res:
+			print("isUnit")
 			model[symbols.pop(i)]=val
 			return solveCNF(clauses,symbols,model)
+
 
 	symb = symbols.pop()
 	rest = symbols
