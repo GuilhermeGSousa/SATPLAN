@@ -56,10 +56,12 @@ def solveCNF(clauses,symbols,model=Solution()):
 
 	if isEveryClauseTrue(clauses,model):
 		print("All True")
+		model.success = True
 		return True 
 
 	if isAnyClauseFalse(clauses,model):
 		print("Any False")
+		model.success = False
 		return False
 
 	for i in range(0,len(symbols)):
@@ -76,8 +78,8 @@ def solveCNF(clauses,symbols,model=Solution()):
 			model[symbols.pop(i)]=val
 			return solveCNF(clauses,symbols,model)
 
-
 	symb = symbols.pop()
+	print("Branching at "+str(symb))
 	rest = symbols
 
 	rest_copy=copy.deepcopy(rest)
@@ -87,5 +89,5 @@ def solveCNF(clauses,symbols,model=Solution()):
 	model_copy[symb]=False
 
 
-	return solveCNF(clauses,rest,model) or solveCNF(clauses,rest_copy,model_copy)
+	return solveCNF(clauses,rest_copy,model_copy) or solveCNF(clauses,rest,model)
 
