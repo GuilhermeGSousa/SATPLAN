@@ -252,7 +252,27 @@ class Encoder(object):
         del (self.sentence[-nlits:])
 
     def translateDIMACS(self):
-        pass
+        lits = [l for c in self.sentence for l in c]
+        numbers_dict = {}
+        for lit in lits:
+            if lit.ident not in numbers_dict.keys():
+                numbers_dict[lit.ident] = len(numbers_dict) + 1
+        filename = 'dimacs.dat'
+        f = open(filename, 'w')
+        f.write('c 75398 76312\n')
+        nvars = len(numbers_dict)
+        nclauses = len(self.sentence)
+        f.write('p cnf %s %s\n' % (nvars, nclauses))
+        for clause in self.sentence:
+            string = ''
+            for lit in clause:
+                if lit.signal == False:
+                    string += '-'
+                string += ('%s ' % numbers_dict[lit.ident])
+            string += '0' + '\n'
+            f.write(string)
+        f.close()
+        return numbers_dict
 
     def generateSentence(self, t):
         time1=time.time()
@@ -274,17 +294,8 @@ class Encoder(object):
         # Goal is reached in time horizon h
         self.addGoalStates(t)
 
-        lits = [c[l] for c in self.sentence for l in c]
-
-        numbers_dict = {}
-
-        for lit in lits:
-            if lit.ident not in numbers_dict.keys():
-                numbers_dict[lit.ident] = len(numbers_dict)+1
-
-        for clause in self.sentence:
-            
-
+        # Translate to the DIMACS format
+        mapping = self.translateDIMACS()
 
 
 
