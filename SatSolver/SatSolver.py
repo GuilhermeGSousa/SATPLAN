@@ -11,7 +11,6 @@ def isEveryClauseTrue(clauses,model):
 			if l.name in model.var_sol.keys():
 				if model[l.name]==l.signal:
 					clauseFalse=False
-
 		if clauseFalse==True:
 			return False
 	return True
@@ -45,65 +44,68 @@ def isPureSymbol(clauses,symb):
 
 def isUnitClause(clauses,symb,model):
 	for c in clauses:
-		list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
-		if len(list_unassigned)==1 and list_unassigned[0].name==symb:
-			return [True , list_unassigned[0].signal]
+		if not any(l.signal==model[l.name] for l in c):
+			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
+			if len(list_unassigned)==1 and list_unassigned[0].name==symb:
+				return [True , list_unassigned[0].signal]
 	return [False, None]
 
 def learnConflict(clauses,model):
+	learned=[]
 	for key in model.var_sol.keys():
 		tmp=not model[key]
-		clauses.add(frozenset([Variable(key,tmp)]))
+		learned.append(Variable(key,tmp))
+	clauses.add(frozenset(learned))
+	return clauses
 
 
 def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 
 
 	if isEveryClauseTrue(clauses,model):
+		print("Solution Found")
 		model.success = True
 		return (True, model) 
 
 	if isAnyClauseFalse(clauses,model):
+		print("Failed, backtracking")
 		model.success = False
-		#learnConflict(clauses,model)
-		return (False, None)
+		clauses=learnConflict(clauses,model)
+		return (False, model)
 
 	for i in range(0,len(symbols)):
 
 		res, val = isPureSymbol(clauses,symbols[i])
 		if res:
-			symbols_copy=copy.deepcopy(symbols)
-			model_copy=copy.deepcopy(model)
-			model_copy[symbols_copy.pop(i)]=val
-			return solveCNF(clauses,symbols_copy,model_copy,lvl+1)
+			print(str(symbols[i])+" pure")
+			model[symbols.pop(i)]=val
+			return solveCNF(clauses,symbols,model,lvl+1)
 
 		res, val = isUnitClause(clauses,symbols[i],model)
 		if res:
-			symbols_copy=copy.deepcopy(symbols)
-			model_copy=copy.deepcopy(model)
-			model_copy[symbols_copy.pop(i)]=val
-			return solveCNF(clauses,symbols_copy,model_copy,lvl+1)
+			print(str(symbols[i])+" unit")
+			model[symbols.pop(i)]=val
+			return solveCNF(clauses,symbols,model,lvl+1)
 
-	symb = symbols.pop(0)	
-	rest = symbols
+
+	rest = copy.deepcopy(symbols)
+	symb = rest.pop(0)
 
 	for i in range(0,lvl):
 		print("   ",end="")
 	print("Branching at "+str(symb))
 
 	rest_copy1=copy.deepcopy(rest)
-	model_copy1=copy.deepcopy(model)
-	rest_copy2=copy.deepcopy(rest)
+	model_copy1=copy.deepcopy(model) 
 	model_copy2=copy.deepcopy(model)
-	clauses_copy1=copy.deepcopy(clauses)
-	clauses_copy2=copy.deepcopy(clauses)
+
 
 	model_copy1[symb]=True
 	model_copy2[symb]=False
 
 
-	res1 ,model1 = solveCNF(clauses_copy1,rest_copy1,model_copy1,lvl+1)
-	res2 ,model2 = solveCNF(clauses_copy2,rest_copy2,model_copy2,lvl+1)
+	res1 ,model1 = solveCNF(clauses,rest,model_copy1,lvl+1)
+	res2 ,model2 = solveCNF(clauses,rest_copy1,model_copy2,lvl+1)
 
 	if res1:
 		model.var_sol=model1.var_sol
@@ -112,5 +114,5 @@ def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 		model.var_sol=model2.var_sol
 		return res2,model2
 	else:
-		return False,None
+		return False,model
 
