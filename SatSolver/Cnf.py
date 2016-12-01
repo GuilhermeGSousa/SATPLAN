@@ -35,7 +35,7 @@ class CNF(object):
 
 def readCnf(file_name):
 	symbols=[]
-	clauses=set([]) #Should also be frozen
+	clauses=set([]) #Cant be frozen to be able to learn
 	f=open(file_name)
 
 	for line in f:

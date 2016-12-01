@@ -18,15 +18,15 @@ def isEveryClauseTrue(clauses,model):
 
 def isAnyClauseFalse(clauses,model):
 	for c in clauses:
+		clauseFalse=True
 		for l in c:
 			if not l.name in model.var_sol.keys():
 				return False
 			else:
-				clauseFalse=True
 				if model[l.name]==l.signal:
 					clauseFalse=False
-				if clauseFalse==True:
-					return True
+		if clauseFalse==True:
+			return True
 	return False				
 
 def isPureSymbol(clauses,symb):
@@ -50,44 +50,67 @@ def isUnitClause(clauses,symb,model):
 			return [True , list_unassigned[0].signal]
 	return [False, None]
 
+def learnConflict(clauses,model):
+	for key in model.var_sol.keys():
+		tmp=not model[key]
+		clauses.add(frozenset([Variable(key,tmp)]))
 
-def solveCNF(clauses,symbols,model=Solution()):
+
+def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 
 
 	if isEveryClauseTrue(clauses,model):
-		print("All True")
 		model.success = True
-		return True 
+		return (True, model) 
 
 	if isAnyClauseFalse(clauses,model):
-		print("Any False")
 		model.success = False
-		return False
+		#learnConflict(clauses,model)
+		return (False, None)
 
 	for i in range(0,len(symbols)):
 
 		res, val = isPureSymbol(clauses,symbols[i])
 		if res:
-			print("isPure")
-			model[symbols.pop(i)]=val
-			return solveCNF(clauses,symbols,model)
+			symbols_copy=copy.deepcopy(symbols)
+			model_copy=copy.deepcopy(model)
+			model_copy[symbols_copy.pop(i)]=val
+			return solveCNF(clauses,symbols_copy,model_copy,lvl+1)
 
 		res, val = isUnitClause(clauses,symbols[i],model)
 		if res:
-			print("isUnit")
-			model[symbols.pop(i)]=val
-			return solveCNF(clauses,symbols,model)
+			symbols_copy=copy.deepcopy(symbols)
+			model_copy=copy.deepcopy(model)
+			model_copy[symbols_copy.pop(i)]=val
+			return solveCNF(clauses,symbols_copy,model_copy,lvl+1)
 
-	symb = symbols.pop()
-	print("Branching at "+str(symb))
+	symb = symbols.pop(0)	
 	rest = symbols
 
-	rest_copy=copy.deepcopy(rest)
-	model_copy=copy.deepcopy(model)
+	for i in range(0,lvl):
+		print("   ",end="")
+	print("Branching at "+str(symb))
 
-	model[symb]=True
-	model_copy[symb]=False
+	rest_copy1=copy.deepcopy(rest)
+	model_copy1=copy.deepcopy(model)
+	rest_copy2=copy.deepcopy(rest)
+	model_copy2=copy.deepcopy(model)
+	clauses_copy1=copy.deepcopy(clauses)
+	clauses_copy2=copy.deepcopy(clauses)
+
+	model_copy1[symb]=True
+	model_copy2[symb]=False
 
 
-	return solveCNF(clauses,rest_copy,model_copy) or solveCNF(clauses,rest,model)
+	res1 ,model1 = solveCNF(clauses_copy1,rest_copy1,model_copy1,lvl+1)
+	res2 ,model2 = solveCNF(clauses_copy2,rest_copy2,model_copy2,lvl+1)
+
+	if res1:
+		model.var_sol=model1.var_sol
+		return res1,model1
+	if res2:
+		model.var_sol=model2.var_sol
+		return res2,model2
+	else:
+		return False,None
 
