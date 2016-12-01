@@ -251,6 +251,9 @@ class Encoder(object):
         nlits = len(self.goals)
         del (self.sentence[-nlits:])
 
+    def translateDIMACS(self):
+        pass
+
     def generateSentence(self, t):
         time1=time.time()
         # First, create unit clauses for the initial state
@@ -270,5 +273,21 @@ class Encoder(object):
 
         # Goal is reached in time horizon h
         self.addGoalStates(t)
+
+        lits = [c[l] for c in self.sentence for l in c]
+
+        numbers_dict = {}
+
+        for lit in lits:
+            if lit.ident not in numbers_dict.keys():
+                numbers_dict[lit.ident] = len(numbers_dict)+1
+
+        for clause in self.sentence:
+            
+
+
+
+
+
         print(time.time()-time1)
         print('something')
