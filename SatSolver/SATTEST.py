@@ -1,16 +1,21 @@
 import sys
+import time
 from SatSolver import *
 def satPlan(argv):
 
+	print("Reading file")
 	cnf=CNF(argv[1])
 	s=Solution()
-
+	print("Starting solver")
+	start_time=time.time()
 	res, sol=solveCNF(cnf.clauses,cnf.symbols,s) #Change to return a Solution
 
-
-	print(str(res))
-	for i,j in sol.var_sol.items():
-		print(str(i)+";"+str(j))
+	print("Running time: %s seconds" % (time.time() - start_time))
+	print("Is solvable: "+str(res))
+	if res:
+		print("Solution:")
+		for i,j in sol.var_sol.items():
+			print(str(i)+";"+str(j))
 
 
 

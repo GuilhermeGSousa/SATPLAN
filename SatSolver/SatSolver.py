@@ -2,7 +2,8 @@ from Cnf import *
 import copy
 
 
-
+def isClauseActive(clause, model): #Make function to test is the clause is not yet assigned
+	pass
 
 def isEveryClauseTrue(clauses,model):
 	for c in clauses:
@@ -63,36 +64,32 @@ def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 
 
 	if isEveryClauseTrue(clauses,model):
-		print("Solution Found")
 		model.success = True
 		return (True, model) 
 
 	if isAnyClauseFalse(clauses,model):
-		print("Failed, backtracking")
 		model.success = False
-		clauses=learnConflict(clauses,model)
+		clauses=learnConflict(clauses,model)  #Clause learning (not improving run times)
 		return (False, model)
 
 	for i in range(0,len(symbols)):
 
 		res, val = isPureSymbol(clauses,symbols[i])
 		if res:
-			print(str(symbols[i])+" pure")
 			model[symbols.pop(i)]=val
 			return solveCNF(clauses,symbols,model,lvl+1)
 
 		res, val = isUnitClause(clauses,symbols[i],model)
 		if res:
-			print(str(symbols[i])+" unit")
 			model[symbols.pop(i)]=val
 			return solveCNF(clauses,symbols,model,lvl+1)
 
 
 	rest = copy.deepcopy(symbols)
-	symb = rest.pop(0)
+	symb = rest.pop(0)  #Variable selection heuristic goes here
 
 	for i in range(0,lvl):
-		print("   ",end="")
+		print("  ",end="")
 	print("Branching at "+str(symb))
 
 	rest_copy1=copy.deepcopy(rest)
