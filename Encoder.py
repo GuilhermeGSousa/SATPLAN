@@ -212,11 +212,12 @@ class Encoder(object):
                     for comb2 in subset:
                         if comb2 not in list_terms:
                             name = groundedLiteralNameGenerator(atom_name, comb2)
-                            glit1 = GroundedLiteral(name, False)
-                            glit2 = GroundedLiteral(name, True)
-                            glit1.indexGL(t)
-                            glit2.indexGL(t + 1)
-                            self.sentence.append([aglit, glit1, glit2])
+                            for value in [True, False]:
+                                glit1 = GroundedLiteral(name, value)
+                                glit2 = GroundedLiteral(name, value)
+                                glit1.indexGL(t)
+                                glit2.indexGL(t + 1)
+                                self.sentence.append([aglit, glit1, glit2])
 
     def oneActionPerTimeStep(self, t):
         at_least_one = []
@@ -297,8 +298,23 @@ class Encoder(object):
         # Translate to the DIMACS format
         mapping = self.translateDIMACS()
 
+        print('--------------')
+        f  = open('s0.txt','r')
+        for line in f:
+            words = line.strip("\n").split()
+            vars = []
+            if line[0] == 'v':
+                for arg in words[1:]:
+                    if arg !='0':
+                        if int(arg)>0:
+                            vars.append(int(arg))
+                    else:
+                        break
+        for var in vars:
+            for name,num in mapping.items():
+                if num == var:
+                    print(name)
 
-
-
+        print('--------------')
         print(time.time()-time1)
         print('something')
