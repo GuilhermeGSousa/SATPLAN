@@ -213,7 +213,7 @@ class Encoder(object):
                         if comb2 not in list_terms:
                             name = groundedLiteralNameGenerator(atom_name, comb2)
                             for value in [True, False]:
-                                glit1 = GroundedLiteral(name, value)
+                                glit1 = GroundedLiteral(name, not value)
                                 glit2 = GroundedLiteral(name, value)
                                 glit1.indexGL(t)
                                 glit2.indexGL(t + 1)
