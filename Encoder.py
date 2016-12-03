@@ -1,9 +1,9 @@
 from GroundedLiteral import *
 from Action import *
 from Atom import *
-import copy
 import string
 import time
+import math
 
 
 def getFunctionNameTerms(f_string):
@@ -64,16 +64,29 @@ def mapAndSubstitute(comb, args, temp):
     name = ident.safe_substitute(mapping)
     return name
 
+def generateBinaryTable(list):
+    nvars = len(list)
+    nbin = math.ceil(math.log(nvars,2))
+    combinations = generatePossibleSets(nbin,[True,False])
+    mapping={}
+    for i,action_name in enumerate(list):
+        if action_name not in mapping.keys():
+            mapping[action_name] = combinations[i]
+    return mapping
+
+
 
 class Encoder(object):
     """docstring for Encoder"""
 
-    def __init__(self, argv):
+    def __init__(self, argv, bit):
         self.init = []  # initial state ground literals
         self.goals = []  # goal state ground literals
         self.sentence = []  # sentence at time t=h
         self.terms_list = []  # constants
         self.actions = []  # list of actions
+        self.bitwise = bit
+        self.mapping = {}
 
         f = open(argv[1], 'r')
         for line in f:
@@ -107,7 +120,7 @@ class Encoder(object):
                 action_name, action_terms = getFunctionNameTerms(action_part)
                 template_name = templateNameCreator(action_name, action_terms)
                 new_action = Action(template_name, action_terms)
-                print(template_name)
+                #print(template_name)
                 # USE ACTION name and terms list here
                 for arg in precond_part:
                     if arg != "":
@@ -115,14 +128,14 @@ class Encoder(object):
                         template_name = templateNameCreator(precond_name, precond_terms)
                         new_atom = Atom(template_name, len(precond_terms))
                         new_action.addPreCondition(new_atom)
-                        print(template_name)
+                        #print(template_name)
                 for arg in effect_part:
                     if arg != "":
                         effect_name, effect_terms = getFunctionNameTerms(arg)
                         template_name = templateNameCreator(effect_name, effect_terms)
                         new_atom = Atom(template_name, len(effect_terms))
                         new_action.addEffect(new_atom)
-                        print(template_name)
+                        #print(template_name)
                 self.actions.append(new_action)
 
             if line[0] == 'G':
@@ -146,7 +159,7 @@ class Encoder(object):
         name = mapAndSubstitute(comb, action.args, action.name_template)
         action_glit = GroundedLiteral(name, sign)
         action_glit.indexGL(t)
-        return action_glit
+        return action_glit, name
 
     def initialStateClauses(self):
         ninit = len(self.init)
@@ -172,31 +185,93 @@ class Encoder(object):
             literal.indexGL(0)
             self.sentence.append([literal])
 
-    def actionsImplications(self, t):
+    def nameActions(self):
+        actions_names = []
         for action in self.actions:
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
-                aglit = self.createIndexedActionLiteral(comb, action, False, t)
+                name = mapAndSubstitute(comb, action.args, action.name_template)
+                actions_names.append(name)
+        return actions_names
+
+    def groundActionBits(self,bin_comb,t):
+        bits_list = []
+        for i,bit in enumerate(bin_comb):
+            name = 'b%s' % i
+            bit_glit = GroundedLiteral(name, not bit)
+            bit_glit.indexGL(t)
+            bits_list.append(bit_glit)
+        return bits_list
+
+    def actionsImplications(self, t):
+        if self.bitwise:
+            mapping = generateBinaryTable(self.nameActions())
+        for action in self.actions:
+            nargs = len(action.args)
+            combinations = generatePossibleSets(nargs, self.terms_list)
+            for comb in combinations:
+                conflict = False
+                efx_list=[]
+                aglit, aname = self.createIndexedActionLiteral(comb, action, False, t)
+                if self.bitwise:
+                    bits_list = self.groundActionBits(mapping[aname], t)
                 for effect in action.efx:
                     name = mapAndSubstitute(comb, action.args, effect.ident_template)
                     sign, name = effect.checkSign(name)
                     effect_glit = GroundedLiteral(name, sign)
                     effect_glit.indexGL(t + 1)
-                    self.sentence.append([aglit, effect_glit])
+                    for added_glit in efx_list:
+                        if effect_glit == -added_glit:
+                            conflict = True
+                            break
+                    if conflict:
+                        if self.bitwise:
+                            self.sentence.append(bits_list)
+                        else:
+                            self.sentence.append([aglit])
+                        break
+                    else:
+                        efx_list.append(effect_glit)
+                        if self.bitwise:
+                            self.sentence.append(bits_list + [effect_glit])
+                        else:
+                            self.sentence.append([aglit, effect_glit])
+                if conflict:
+                    continue
+                precond_list = []
                 for precond in action.preconds:
                     name = mapAndSubstitute(comb, action.args, precond.ident_template)
                     sign, name = precond.checkSign(name)
                     precond_glit = GroundedLiteral(name, sign)
                     precond_glit.indexGL(t)
-                    self.sentence.append([aglit, precond_glit])
+                    for added_glit in precond_list:
+                        if precond_glit == -added_glit:
+                            conflict = True
+                            break
+                    if conflict:
+                        if self.bitwise:
+                            self.sentence.append(bits_list)
+                        else:
+                            self.sentence.append([aglit])
+                        break
+                    else:
+                        precond_list.append(precond_glit)
+                        if self.bitwise:
+                            self.sentence.append(bits_list + [precond_glit])
+                        else:
+                            self.sentence.append([aglit, precond_glit])
 
     def propagateSteadyStates(self, t):
+        if self.bitwise:
+            mapping = generateBinaryTable(self.nameActions())
         for action in self.actions:
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
-                aglit = self.createIndexedActionLiteral(comb, action, False, t)
+                aglit, aname = self.createIndexedActionLiteral(comb, action, False, t)
+                if self.bitwise:
+                    bits_list = self.groundActionBits(mapping[aname], t)
                 modified = {}
                 for effect in action.efx:
                     name = mapAndSubstitute(comb, action.args, effect.ident_template)
@@ -217,7 +292,10 @@ class Encoder(object):
                                 glit2 = GroundedLiteral(name, value)
                                 glit1.indexGL(t)
                                 glit2.indexGL(t + 1)
-                                self.sentence.append([aglit, glit1, glit2])
+                                if self.bitwise:
+                                    self.sentence.append(bits_list + [glit1,glit2])
+                                else:
+                                    self.sentence.append([aglit, glit1, glit2])
 
     def oneActionPerTimeStep(self, t):
         at_least_one = []
@@ -225,7 +303,7 @@ class Encoder(object):
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
-                aglit = self.createIndexedActionLiteral(comb, action, True, t)
+                aglit = self.createIndexedActionLiteral(comb, action, True, t)[0]
                 at_least_one.append(aglit)
         self.sentence.append(at_least_one)
 
@@ -235,12 +313,23 @@ class Encoder(object):
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
-                a = self.createIndexedActionLiteral(comb, action, False, t)
+                a = self.createIndexedActionLiteral(comb, action, False, t)[0]
                 alist.append(a)
         for i, a1 in enumerate(alist):
             for j, a2 in enumerate(alist):
                 if j > i:
                     self.sentence.append([a2, a1])
+
+    def negateUnassignedActions(self,t):
+        list_actions = self.nameActions()
+        mapping = generateBinaryTable(list_actions)
+        nvars = len(list_actions)
+        nbin = math.ceil(math.log(nvars, 2))
+        combinations = generatePossibleSets(nbin, [True, False])
+        for comb in combinations:
+            if comb not in mapping.values():
+                bits_list = self.groundActionBits(comb, t)
+                self.sentence.append(bits_list)
 
     def addGoalStates(self, t):
         for literal in self.goals:
@@ -254,14 +343,14 @@ class Encoder(object):
 
     def translateDIMACS(self):
         lits = [l for c in self.sentence for l in c]
-        numbers_dict = {}
+        self.mapping = {}
         for lit in lits:
-            if lit.ident not in numbers_dict.keys():
-                numbers_dict[lit.ident] = len(numbers_dict) + 1
+            if lit.ident not in self.mapping.keys():
+                self.mapping[lit.ident] = len(self.mapping) + 1
         filename = 'dimacs.dat'
         f = open(filename, 'w')
         f.write('c 75398 76312\n')
-        nvars = len(numbers_dict)
+        nvars = len(self.mapping)
         nclauses = len(self.sentence)
         f.write('p cnf %s %s\n' % (nvars, nclauses))
         for clause in self.sentence:
@@ -269,15 +358,13 @@ class Encoder(object):
             for lit in clause:
                 if lit.signal == False:
                     string += '-'
-                string += ('%s ' % numbers_dict[lit.ident])
+                string += ('%s ' % self.mapping[lit.ident])
             string += '0' + '\n'
             f.write(string)
         f.close()
-        return numbers_dict
 
     def generateSentence(self, t):
-        time1=time.time()
-        # First, create unit clauses for the initial state
+        #First, create unit clauses for the initial state
         if t == 0:
             self.initialStateClauses()
         else:
@@ -289,32 +376,80 @@ class Encoder(object):
         # Atoms not modified by an action are propagated in time
         self.propagateSteadyStates(t)
 
-        # At least ne action per time step
-        self.oneActionPerTimeStep(t)
+        if self.bitwise:
+            self.negateUnassignedActions(t)
+        else:
+            # One action per time step
+            self.oneActionPerTimeStep(t)
 
         # Goal is reached in time horizon h
         self.addGoalStates(t)
 
         # Translate to the DIMACS format
-        mapping = self.translateDIMACS()
+        self.translateDIMACS()
 
-        print('--------------')
-        f  = open('s0.txt','r')
+
+        # # ISTO AJUDA A FAZER DEBUG
+        # print('--------------')
+        # f  = open('s0.txt','r')
+        # for line in f:
+        #     words = line.strip("\n").split()
+        #     vars = []
+        #     if line[0] == 'v':
+        #         for arg in words[1:]:
+        #             if arg !='0':
+        #                 if int(arg)>0:
+        #                     vars.append(int(arg))
+        #             else:
+        #                 break
+        # for var in vars:
+        #     for name,num in self.mapping.items():
+        #         if num == var:
+        #             print(name)
+
+
+    def printSolution(self,t):
+
+        f = open('s0.txt', 'r')
         for line in f:
             words = line.strip("\n").split()
             vars = []
             if line[0] == 'v':
                 for arg in words[1:]:
-                    if arg !='0':
-                        if int(arg)>0:
+                    if arg != '0':
+                        if int(arg) > 0:
                             vars.append(int(arg))
                     else:
                         break
-        for var in vars:
-            for name,num in mapping.items():
-                if num == var:
-                    print(name)
-
         print('--------------')
-        print(time.time()-time1)
-        print('something')
+        print('Problem solution:')
+        print('--------------')
+        if self.bitwise:
+            list_actions = self.nameActions()
+            bin_table = generateBinaryTable(list_actions)
+            nbits = len(list(bin_table.values())[0])
+            for h in range(t + 1):
+                current_action = [False] * nbits
+                for var in vars:
+                    for name, num in self.mapping.items():
+                        if num == var and name[0] == 'b' and int(name[-1]) == h:
+                            bit_index = int(name[1])
+                            current_action[bit_index] = True
+                for action_name, bits in bin_table.items():
+                    if bits == current_action:
+                        name = action_name
+                        break
+                print(name)
+        else:
+            action_names = []
+            for action in self.actions:
+                action_names.append(getFunctionNameTerms(action.name_template)[0])
+            for h in range(t+1):
+                for var in vars:
+                    for name, num in self.mapping.items():
+                        if num == var:
+                            pred_or_action_name = getFunctionNameTerms(name)[0]
+                            if pred_or_action_name in action_names and int(name[-1]) == h:
+                                print(name[:-2])
+
+
