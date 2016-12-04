@@ -7,6 +7,9 @@ import math
 
 
 def getFunctionNameTerms(f_string):
+    # This function gets a string that includes
+    # the function name with its arguments
+    # and returns them separated
     i_first = f_string.index("(")
     i_last = f_string.index(")")
     name = f_string[0:i_first]
@@ -16,22 +19,31 @@ def getFunctionNameTerms(f_string):
 
 
 def templateNameCreator(f_name, terms):
+    # This function receives the function name and
+    # its terms and rewrites its name in the format
+    #             'function($arg1,$arg2)'
+    # in order to use the method from the string object
+    # further ahead
     template_name = f_name + "("
     for i in range(0, len(terms)):
         if i != len(terms) - 1:
             if not terms[i][0].isupper():
-                template_name += "$" + terms[i] + ","  # + "$,"
+                template_name += "$" + terms[i] + ","
             else:
                 template_name += terms[i] + ","
         else:
             if not terms[i][0].isupper():
-                template_name += "$" + terms[i] + ")"  # + "$)"
+                template_name += "$" + terms[i] + ")"
             else:
                 template_name += terms[i] + ")"
     return template_name
 
 
 def groundedLiteralNameGenerator(f_name, terms):
+    # This function receives the function name
+    # and its terms and builds the whole name
+    # for the grounded literal in the format
+    #       'function(arg1,arg2)'
     name = f_name + "("
 
     for i in range(0, len(terms)):
@@ -43,6 +55,9 @@ def groundedLiteralNameGenerator(f_name, terms):
 
 
 def generatePossibleSets(nterms, terms):
+    # Generates all possible combinations of nterms with the
+    # values supplied in terms recursively;
+    # Returns the set as a list of lists
     set = []
     if nterms == 1:
         for term in terms:
@@ -57,6 +72,11 @@ def generatePossibleSets(nterms, terms):
 
 
 def mapAndSubstitute(comb, args, temp):
+    # Receives a list with the intended set of constants
+    # named comb, receives the arguments of the template
+    # in args and the template in temp and then
+    # performs the substitution, returning the obtained
+    # string
     mapping = {}
     for i, arg in enumerate(args):
         mapping[arg] = comb[i]
@@ -65,6 +85,13 @@ def mapAndSubstitute(comb, args, temp):
     return name
 
 def generateBinaryTable(list):
+    # Receives a list with all the possible names
+    # for the actions after constant substitution and
+    # computes the necessary number of binary variables
+    # necessary to represent those actions and then
+    # assigns one binary number to each action, returning
+    # a dictionary named mapping whose keys are the actions'
+    # names and the values are the assigned binary number
     nvars = len(list)
     nbin = math.ceil(math.log(nvars,2))
     combinations = generatePossibleSets(nbin,[True,False])
@@ -80,24 +107,27 @@ class Encoder(object):
     """docstring for Encoder"""
 
     def __init__(self, argv, bit):
-        self.init = []  # initial state ground literals
-        self.goals = []  # goal state ground literals
+        # This method initializes utility data and reads the input file;
+        # It assumes all the constants of the problem are present in the
+        # initial and goal states
+
+        self.init = []  # initial state grounded literals
+        self.goals = []  # goal state grounded literals
         self.sentence = []  # sentence at time t=h
         self.terms_list = []  # constants
         self.actions = []  # list of actions
-        self.bitwise = bit
-        self.mapping = {}
+        self.bitwise = bit # True = bitwise, False = classical
+        self.mapping = {} # DIMACS mapping
+        self.file_string = argv[1] # input file name
 
-        f = open(argv[1], 'r')
-        for line in f:
+        f = open(self.file_string, 'r') # open input file
+        for line in f: # go through every line
             words = line.strip("\n").split()
 
-            if line[0] == 'I':
+            if line[0] == 'I': # if the line describes an initial state
                 for arg in words[1:]:
                     name, terms = getFunctionNameTerms(arg)
-
-                    # USE name and terms list here
-                    for t in terms:
+                    for t in terms: # add new found constants to the list
                         if not (t in self.terms_list):
                             self.terms_list.append(t)
 
@@ -106,43 +136,49 @@ class Encoder(object):
                         name = name[1:]
                     else:
                         signal = True
+                    # generate the grounded literals for the initial state
                     ident = groundedLiteralNameGenerator(name, terms)
                     g_lit = GroundedLiteral(ident, signal)
                     self.init.append(g_lit)
 
-            if line[0] == 'A':
+            if line[0] == 'A': # if the line describes an action
+                # separate the action part from the preconditions from the effects
                 action_part = line[1:].strip(" ").split(":")[0]
                 i_colon = line.index(":")
                 i_arrow = line.index(">")
                 precond_part = line[i_colon + 1:i_arrow - 1].strip("\n").split(" ")
                 effect_part = line[i_arrow + 1:].strip("\n").split(" ")
 
+                # Create an Action object from the action name and its template arguments
                 action_name, action_terms = getFunctionNameTerms(action_part)
                 template_name = templateNameCreator(action_name, action_terms)
                 new_action = Action(template_name, action_terms)
-                #print(template_name)
-                # USE ACTION name and terms list here
+
+                # Go through the preconditions
                 for arg in precond_part:
                     if arg != "":
+                        # Create an Atom object from the precondition's name and its template terms
                         precond_name, precond_terms = getFunctionNameTerms(arg)
                         template_name = templateNameCreator(precond_name, precond_terms)
                         new_atom = Atom(template_name, len(precond_terms))
-                        new_action.addPreCondition(new_atom)
+                        new_action.addPreCondition(new_atom) # add precondition to the action
                         #print(template_name)
+                # Go through the effects
                 for arg in effect_part:
                     if arg != "":
+                        # Create an Atom object from the effect's name and its template terms
                         effect_name, effect_terms = getFunctionNameTerms(arg)
                         template_name = templateNameCreator(effect_name, effect_terms)
                         new_atom = Atom(template_name, len(effect_terms))
-                        new_action.addEffect(new_atom)
+                        new_action.addEffect(new_atom) # add effect to the action
                         #print(template_name)
                 self.actions.append(new_action)
 
-            if line[0] == 'G':
+            if line[0] == 'G': # if the line describes a ground state
                 for arg in words[1:]:
                     name, terms = getFunctionNameTerms(arg)
                     # USE name and terms list here
-                    for t in terms:
+                    for t in terms: # add new found constants to the list
                         if not (t in self.terms_list):
                             self.terms_list.append(t)
 
@@ -151,17 +187,34 @@ class Encoder(object):
                         name = name[1:]
                     else:
                         signal = True
+                    # Create the grounded literal for the goal state
                     ident = groundedLiteralNameGenerator(name, terms)
                     g_lit = GroundedLiteral(ident, signal)
                     self.goals.append(g_lit)
+        f.close()
 
     def createIndexedActionLiteral(self, comb, action, sign, t):
+        # Receives the action object, the list with the arguments to substitute
+        # (comb), the sign intended for the grounded literal and the current
+        # time step;
+        # Performs substitution to get the literal name and then creates
+        # the grounded literal and indexes the time step to its name;
+        # Returns both the grounded literal and the obtained name
         name = mapAndSubstitute(comb, action.args, action.name_template)
         action_glit = GroundedLiteral(name, sign)
         action_glit.indexGL(t)
         return action_glit, name
 
     def initialStateClauses(self):
+        # From the constructor of the Encoder class, the initial state
+        # grounded literals are already available. This function computes
+        # all the possible combinations of arguments for all those literals
+        # and negates the ones that do not correspond to the initial state.
+        # Additional loop control variables are inserted to guarantee that
+        # grounded literals are not repeated since different grounded atoms in the
+        # initial state can generate the same negated literal. In the end, both
+        # the initial state literals and the negated ones are indexed with t=0
+        # and added to the SAT sentence.
         ninit = len(self.init)
         for i in range(ninit):
             literal = self.init[i]
@@ -186,6 +239,8 @@ class Encoder(object):
             self.sentence.append([literal])
 
     def nameActions(self):
+        # This function generates a list with the name of all possible
+        # grounded actions
         actions_names = []
         for action in self.actions:
             nargs = len(action.args)
@@ -196,6 +251,9 @@ class Encoder(object):
         return actions_names
 
     def groundActionBits(self,bin_comb,t):
+        # This function receives the binary number corresponding to a certain
+        # grounded action (bitwise representation) and grounds every literal
+        # (bit) in it to form the negated grounded action literal
         bits_list = []
         for i,bit in enumerate(bin_comb):
             name = 'b%s' % i
@@ -205,6 +263,25 @@ class Encoder(object):
         return bits_list
 
     def actionsImplications(self, t):
+        # This function generates the clauses that correspond to the actions
+        # implicating their preconditions and their effects;
+        # It has condition statements in order to create the clauses
+        # for the classical and the bitwise representation of actions;
+        # Either way, what the function does is go through all the grounded actions
+        # and create a clause with the negated action and a precondition or effect,
+        # for every precondition and effect corresponding to that action;
+        # Special care must be taken because in the actions' templates, the atoms
+        # in the preconditions and effects can still have a negation operator in their
+        # name strings;
+        # Extra condition statements are added together with a loop control variable
+        # named 'conflict' in order to avoid creating clauses corresponding to actions
+        # that imply contradictory effects or contradictory preconditions; the way
+        # this works is by keeping in memory, for a given grounded action, the effects
+        # and the preconditions as the loop iterates through them to create the
+        # clauses; if, during the loop, a conflict is found between the current
+        # effect/precondition and another one already tested, then the clause that
+        # is added to the sentence is merely '-A', where A is the corresponding
+        # grounded action, because we know this action cannot be performed.
         if self.bitwise:
             mapping = generateBinaryTable(self.nameActions())
         for action in self.actions:
@@ -263,6 +340,21 @@ class Encoder(object):
                             self.sentence.append([aglit, precond_glit])
 
     def propagateSteadyStates(self, t):
+        # This function is responsible for creating the clauses corresponding to
+        # the frame axioms, stating that literals unaffected by an action are kept
+        # for the next time step;
+        # A literal is considered to be unaffected by an action if it is different
+        # from the grounded effects of that action;
+        # This function has condition statements in order to work for both
+        # classical and bitwise representation of actions;
+        # The basic flow is to go through all the grounded actions and store in memory
+        # all the grounded effects (in a dict called 'modified'). Then, for every
+        # possible combination of arguments (for every atom in 'modified') that does
+        # not correspond to an effect, a grounded literal is created. With this grounded
+        # literal,'glit1', the clause '-A or -glit1 or glit2' is added to the sentence
+        # with 'glit1' corresponding to time step t and 'glit2' to time step t+1;
+        # Two clauses are created, with 'glit1' assuming a positive and a negative
+        # sign and 'glit2' the opposite sign to 'glit1'.
         if self.bitwise:
             mapping = generateBinaryTable(self.nameActions())
         for action in self.actions:
@@ -288,8 +380,8 @@ class Encoder(object):
                         if comb2 not in list_terms:
                             name = groundedLiteralNameGenerator(atom_name, comb2)
                             for value in [True, False]:
-                                glit1 = GroundedLiteral(name, not value)
-                                glit2 = GroundedLiteral(name, value)
+                                glit1 = GroundedLiteral(name, value)
+                                glit2 = -glit1
                                 glit1.indexGL(t)
                                 glit2.indexGL(t + 1)
                                 if self.bitwise:
@@ -298,13 +390,24 @@ class Encoder(object):
                                     self.sentence.append([aglit, glit1, glit2])
 
     def oneActionPerTimeStep(self, t):
+        # This function is called when the classical representation for actions is
+        # used. It consists of creating the at-least-one and at-most-one clauses
+        # encompassing all grounded actions;
+        # To create the at-least-one clause, it is only necessary to get all possible
+        # grounded actions and create a clause as the disjunction of all those grounded
+        # actions;
+        # The at-most-one clause is a conjunction of clauses of two grounded actions
+        # stating that for every pair of actions only one can occur (for the same time
+        # step);
+        # These clauses are created by creating a list with all grounded actions being negated
+        # and then for every pair of them, create a clause like '-A1 or -A2' to stop both of them
+        # from being True.
         at_least_one = []
-        for action in self.actions:
-            nargs = len(action.args)
-            combinations = generatePossibleSets(nargs, self.terms_list)
-            for comb in combinations:
-                aglit = self.createIndexedActionLiteral(comb, action, True, t)[0]
-                at_least_one.append(aglit)
+        name_actions = self.nameActions()
+        for action_name in name_actions:
+            action_glit = GroundedLiteral(action_name, True)
+            action_glit.indexGL(t)
+            at_least_one.append(action_glit)
         self.sentence.append(at_least_one)
 
         # At most one action per time step
@@ -321,6 +424,17 @@ class Encoder(object):
                     self.sentence.append([a2, a1])
 
     def negateUnassignedActions(self,t):
+        # This function is used only for the bitwise representation
+        # of actions;
+        # It is necessary because the chosen number of bits to represent
+        # all grounded actions may result in a number of combinations
+        # greater than the number of grounded actions, leaving some
+        # binary numbers with no corresponding action. This can be
+        # problematic if the SAT solver solution returns an assignment
+        # for these bits that doesn't correspond to any action, meaning
+        # the goal state may not have any conflict at time step 1;
+        # For this reason, the unassigned binary sequences must correspond
+        # to clauses that make those sequences False
         list_actions = self.nameActions()
         mapping = generateBinaryTable(list_actions)
         nvars = len(list_actions)
@@ -332,22 +446,37 @@ class Encoder(object):
                 self.sentence.append(bits_list)
 
     def addGoalStates(self, t):
+        # This function simply adds the goal state's literals
+        # to the SAT sentence, indexed by (t+1) at time t, i.e.,
+        # at least one action is necessary to reach the goal state
         for literal in self.goals:
             glit = copy.copy(literal)  # copy instead of deepcopy because GroundedLiteral doesnt have objects in it
             glit.indexGL(t + 1)
             self.sentence.append([glit])
 
     def removePreviousGoalStates(self):
+        # If the SAT sentence generator is being called at time
+        # t, then it means the problem wasn't satisfiable at time
+        # (t-1), so we need to remove the goal state's literals
+        # from the previous time step.
+        # This is easily done by assuming the goal state's clauses
+        # are always on the end of the SAT sentence.
         nlits = len(self.goals)
         del (self.sentence[-nlits:])
 
-    def translateDIMACS(self):
+    def translateDIMACS(self,t):
+        # This function takes the generated SAT sentence
+        # and assigns an integer to every atom in it;
+        # It then goes through the sentence again to
+        # write every clause in it in a file using the
+        # integer assignment created before, negating the
+        # values for negated literals.
         lits = [l for c in self.sentence for l in c]
         self.mapping = {}
         for lit in lits:
             if lit.ident not in self.mapping.keys():
                 self.mapping[lit.ident] = len(self.mapping) + 1
-        filename = 'dimacs.dat'
+        filename = 'dimacs' + ('%s'%t) + '.dat'
         f = open(filename, 'w')
         f.write('c 75398 76312\n')
         nvars = len(self.mapping)
@@ -364,29 +493,28 @@ class Encoder(object):
         f.close()
 
     def generateSentence(self, t):
-        #First, create unit clauses for the initial state
+        # This is the function that generates the SAT sentence to
+        # be fed to the SAT solver.
         if t == 0:
+            # First, create unit clauses for the initial state
             self.initialStateClauses()
         else:
+            # Remove goal state clauses from previous time step
             self.removePreviousGoalStates()
-
         # Actions imply their preconditions and effects
         self.actionsImplications(t)
-
         # Atoms not modified by an action are propagated in time
         self.propagateSteadyStates(t)
-
         if self.bitwise:
+            # If using bitwise representation, negate the unused assignments
             self.negateUnassignedActions(t)
         else:
-            # One action per time step
+            # One action per time step clauses for classical representation of actions
             self.oneActionPerTimeStep(t)
-
-        # Goal is reached in time horizon h
+        # Goal is reached in time horizon h = t+1
         self.addGoalStates(t)
-
         # Translate to the DIMACS format
-        self.translateDIMACS()
+        self.translateDIMACS(t)
 
 
         # # ISTO AJUDA A FAZER DEBUG
@@ -409,47 +537,67 @@ class Encoder(object):
 
 
     def printSolution(self,t):
+        # This function is responsible for reading the file
+        # with the solution from the SAT solver and for
+        # interpreting the result in order to retrieve the actions
+        # that have been assigned True in the solution;
+        # It has two different approaches for bitwise and classical
+        # representation of actions, but the idea is to get all the variables
+        # that have been assigned True and look for the ones that correspond
+        # to actions and then fetch the correct name of the action and print
+        # in the display from t=0 to t=h
 
-        f = open('s0.txt', 'r')
+        # Get the correct file name
+        dot_sep = self.file_string.index(".")
+        name = self.file_string[0:dot_sep]
+        f = open(name+'_out'+'.dat', 'r') # output file from SAT solver
+
         for line in f:
             words = line.strip("\n").split()
-            vars = []
-            if line[0] == 'v':
+            if words == ['SAT']: # if satisfiable, read the file
+                result = True
+                continue
+            elif words == ['UNSAT']: # if not, print nothing and exit
+                result = False
+                break
+            else: # corresponds other lines in the file
+                vars = []
                 for arg in words[1:]:
-                    if arg != '0':
-                        if int(arg) > 0:
-                            vars.append(int(arg))
-                    else:
-                        break
-        print('--------------')
-        print('Problem solution:')
-        print('--------------')
-        if self.bitwise:
-            list_actions = self.nameActions()
-            bin_table = generateBinaryTable(list_actions)
-            nbits = len(list(bin_table.values())[0])
-            for h in range(t + 1):
-                current_action = [False] * nbits
-                for var in vars:
-                    for name, num in self.mapping.items():
-                        if num == var and name[0] == 'b' and int(name[-1]) == h:
-                            bit_index = int(name[1])
-                            current_action[bit_index] = True
-                for action_name, bits in bin_table.items():
-                    if bits == current_action:
-                        name = action_name
-                        break
-                print(name)
-        else:
-            action_names = []
-            for action in self.actions:
-                action_names.append(getFunctionNameTerms(action.name_template)[0])
-            for h in range(t+1):
-                for var in vars:
-                    for name, num in self.mapping.items():
-                        if num == var:
-                            pred_or_action_name = getFunctionNameTerms(name)[0]
-                            if pred_or_action_name in action_names and int(name[-1]) == h:
-                                print(name[:-2])
+                    if int(arg) > 0:
+                        vars.append(int(arg)) # take variables assigned with True
+                print('-----------------')
+                print('Problem solution:')
+                print('-----------------')
+                if self.bitwise: # for the bitwise representation of actions
+                    list_actions = self.nameActions() # get actions' names
+                    bin_table = generateBinaryTable(list_actions) # generate mapping actions-binary numbers
+                    nbits = len(list(bin_table.values())[0])
+                    for h in range(t + 1):
+                        current_action = [False] * nbits
+                        for var in vars: # for every variable assigned True
+                            for name, num in self.mapping.items(): # for every correspondence in DIMACS mapping
+                                if num == var and name[0] == 'b' and int(name[-1]) == h:
+                                    # if it is an action bit at time t=h
+                                    bit_index = int(name[1]) # get bit index
+                                    current_action[bit_index] = True # build the action binary sequence
+                        for action_name, bits in bin_table.items(): # search for the sequence obtained
+                            if bits == current_action: # if we found the sequence...
+                                name = action_name # ... we found the corresponding action
+                                break
+                        print(name)
+                else: # for the classical representation of actions
+                    action_names = []
+                    for action in self.actions: # get the name of the actions (without arguments)
+                        action_names.append(getFunctionNameTerms(action.name_template)[0])
+                    for h in range(t+1): # search for every time step
+                        for var in vars: # check every variable assigned True by the solver
+                            for name, num in self.mapping.items(): # check the DIMACS mapping
+                                if num == var: # if a certain number is True...
+                                    pred_or_action_name = getFunctionNameTerms(name)[0]#...get name for that number
+                                    if pred_or_action_name in action_names and int(name[-1]) == h:
+                                        # ...and if it is an action (not a predicate) at time=h , then print
+                                        print(name[:-2])
+        f.close()
+        return result
 
 
