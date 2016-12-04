@@ -303,6 +303,7 @@ class Encoder(object):
                             conflict = True
                             break
                     if conflict:
+                        del(self.sentence[-len(efx_list):])
                         if self.bitwise:
                             self.sentence.append(bits_list)
                         else:
@@ -327,6 +328,7 @@ class Encoder(object):
                             conflict = True
                             break
                     if conflict:
+                        del (self.sentence[-len(precond_list):])
                         if self.bitwise:
                             self.sentence.append(bits_list)
                         else:
