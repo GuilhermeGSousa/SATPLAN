@@ -30,7 +30,6 @@ def isAnyClauseFalse(clauses,model):
 	return [False, None]				
 
 def isPureSymbol(clauses,symb):
-	isPure=False
 	currentSignal=None
 	for c in clauses:
 		for l in c:

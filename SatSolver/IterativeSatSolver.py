@@ -34,8 +34,6 @@ def decideBranch(branched,symbols,model):
 def deduceStatus(clauses,symbols,model):
 	changes=[]
 
-
-
 	if isEveryClauseTrue(clauses,model):
 		model.success = True
 		print("all true")
@@ -55,13 +53,13 @@ def deduceStatus(clauses,symbols,model):
 				model[s]=val
 				changes.append(s)
 				continue
-
 			res, val = isUnitClause(clauses,s,model)
 			if res:
 				symbols.remove(s)
 				model[s]=val
 				changes.append(s)
 				continue
+			
 
 
 	return["OTHER",changes]
@@ -94,19 +92,16 @@ def solveIterativeCNF(clauses,symbols,model=Solution()):
 			lvl=lvl+1
 			changed[lvl]=[symb]
 		while True:
-			print("Before deduce")
 			status, changes= deduceStatus(clauses,symbols,model) #This function takes the longest to run for large input files
-			print("After deduce")
 			if lvl>0:
 				changed[lvl].extend(changes)
 			print(status)
 			if status == "CONFLICT":
-				print(backtracks)
 				blvl=analyzeConflict(clauses,model,lvl)
 				if lvl==0:
 					return [False, model]
 
-				if backtracks>=50:
+				if backtracks>=10:
 					print("Restarting")
 					backtrackToLevel(changed,symbols,model,0,lvl)
 					backtracks=0
