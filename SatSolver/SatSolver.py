@@ -78,12 +78,12 @@ def solveRecursiveCNF(clauses,symbols,model=Solution(),lvl=0):
 		res, val = isPureSymbol(clauses,symbols[i])
 		if res:
 			model[symbols.pop(i)]=val
-			return solveCNF(clauses,symbols,model,lvl+1)
+			return solveRecursiveCNF(clauses,symbols,model,lvl+1)
 
 		res, val = isUnitClause(clauses,symbols[i],model)
 		if res:
 			model[symbols.pop(i)]=val
-			return solveCNF(clauses,symbols,model,lvl+1)
+			return solveRecursiveCNF(clauses,symbols,model,lvl+1)
 
 
 	rest = copy.deepcopy(symbols)
@@ -102,8 +102,8 @@ def solveRecursiveCNF(clauses,symbols,model=Solution(),lvl=0):
 	model_copy2[symb]=False
 
 
-	res1 ,model1 = solveCNF(clauses,rest,model_copy1,lvl+1)
-	res2 ,model2 = solveCNF(clauses,rest_copy1,model_copy2,lvl+1)
+	res1 ,model1 = solveRecursiveCNF(clauses,rest,model_copy1,lvl+1)
+	res2 ,model2 = solveRecursiveCNF(clauses,rest_copy1,model_copy2,lvl+1)
 
 	if res1:
 		model.var_sol=model1.var_sol

@@ -9,6 +9,7 @@ def satPlan(argv):
 	print("Starting solver")
 	start_time=time.time()
 
+	print(len(cnf.clauses))
 	res, sol=solveIterativeCNF(cnf.clauses,cnf.symbols,s) #Change to return a Solution
 
 	print("Running time: %s seconds" % (time.time() - start_time))
