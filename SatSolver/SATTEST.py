@@ -1,6 +1,6 @@
 import sys
 import time
-from SatSolver import *
+from IterativeSatSolver import *
 def satPlan(argv):
 
 	print("Reading file")
@@ -8,7 +8,8 @@ def satPlan(argv):
 	s=Solution()
 	print("Starting solver")
 	start_time=time.time()
-	res, sol=solveCNF(cnf.clauses,cnf.symbols,s) #Change to return a Solution
+
+	res, sol=solveIterativeCNF(cnf.clauses,cnf.symbols,s) #Change to return a Solution
 
 	print("Running time: %s seconds" % (time.time() - start_time))
 	print("Is solvable: "+str(res))
@@ -16,8 +17,6 @@ def satPlan(argv):
 		print("Solution:")
 		for i,j in sol.var_sol.items():
 			print(str(i)+";"+str(j))
-
-
 
 if __name__ == '__main__':
 	satPlan(sys.argv)

@@ -21,13 +21,13 @@ def isAnyClauseFalse(clauses,model):
 		clauseFalse=True
 		for l in c:
 			if not l.name in model.var_sol.keys():
-				return False
+				clauseFalse=False
 			else:
 				if model[l.name]==l.signal:
 					clauseFalse=False
 		if clauseFalse==True:
-			return True
-	return False				
+			return [True,c]
+	return [False, None]				
 
 def isPureSymbol(clauses,symb):
 	isPure=False
@@ -60,16 +60,17 @@ def learnConflict(clauses,model):
 	return clauses
 
 
-def solveCNF(clauses,symbols,model=Solution(),lvl=0):
+def solveRecursiveCNF(clauses,symbols,model=Solution(),lvl=0):
 
 
 	if isEveryClauseTrue(clauses,model):
 		model.success = True
 		return (True, model) 
 
-	if isAnyClauseFalse(clauses,model):
+	res,clause =isAnyClauseFalse(clauses,model)
+	if res:
 		model.success = False
-		clauses=learnConflict(clauses,model)  #Clause learning (not improving run times)
+		learnConflict(clauses,model)  #Clause learning (not improving run times)
 		return (False, model)
 
 	for i in range(0,len(symbols)):
@@ -112,4 +113,3 @@ def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 		return res2,model2
 	else:
 		return False,model
-
