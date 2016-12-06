@@ -34,10 +34,7 @@ def decideBranch(branched,symbols,model):
 def deduceStatus(clauses,symbols,model):
 	changes=[]
 
-	change=assignUnitSymbols(clauses,symbols,model)
 
-	if change not is None:
-		changes.extend(change)
 
 	if symbols is not None:
 		for s in symbols:
@@ -56,7 +53,10 @@ def deduceStatus(clauses,symbols,model):
 			# 	changes.append(s)
 			# 	continue
 
+	change=assignUnitSymbols(clauses,symbols,model)
 
+	if not change is None:
+		changes.extend(change)
 
 	if isEveryClauseTrue(clauses,model):
 		model.success = True
@@ -78,12 +78,13 @@ def analyzeConflict(clauses,model,lvl):
 def backtrackToLevel(changed,symbols,model,blvl,lvl):
 
 
-	for i in range(blvl,lvl+1):
+	for i in range(lvl,blvl-1,-1):
 		if i>0:
 			for s in changed[i]:
 				if s in model.var_sol.keys():
 					symbols.append(s)
 					del model.var_sol[s]
+			changed[i] = []
 
 
 def solveIterativeCNF(clauses,symbols,model=Solution()):
@@ -107,7 +108,7 @@ def solveIterativeCNF(clauses,symbols,model=Solution()):
 				if lvl==0:
 					return [False, model]
 
-				# if backtracks>=50:
+				# if backtracks>=20:
 				# 	print("Restarting")
 				# 	backtrackToLevel(changed,symbols,model,0,lvl)
 				# 	backtracks=0
@@ -117,7 +118,7 @@ def solveIterativeCNF(clauses,symbols,model=Solution()):
 				# 	backtracks+=1
 				backtrackToLevel(changed,symbols,model,blvl,lvl)
 				lvl=blvl
-
+				break
 			elif status == "SAT":
 				return [True, model]
 			else:
