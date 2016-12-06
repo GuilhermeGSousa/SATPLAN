@@ -1,5 +1,5 @@
 from SatSolver import *
-
+import time
 def decideBranch(branched,symbols,model):
 
 	if symbols is not None and len(symbols)>0:
@@ -43,24 +43,24 @@ def deduceStatus(clauses,symbols,model):
 	if res:
 		model.success = False
 		clauses=learnConflict(clauses,model)  #Clause learning (not improving run times)
-		return ["CONFLICT",changes]
+		return ["CONFLICT",changes]		
 
 	if symbols is not None:
 		for s in symbols:
-			res, val = isPureSymbol(clauses,s)
-			if res:
-				symbols.remove(s)
-				model[s]=val
-				changes.append(s)
-				continue
+
 			res, val = isUnitClause(clauses,s,model)
 			if res:
 				symbols.remove(s)
 				model[s]=val
 				changes.append(s)
 				continue
-			
 
+			res, val = isPureSymbol(clauses,s)
+			if res:
+				symbols.remove(s)
+				model[s]=val
+				changes.append(s)
+				continue
 
 	return["OTHER",changes]
 
@@ -101,10 +101,11 @@ def solveIterativeCNF(clauses,symbols,model=Solution()):
 				if lvl==0:
 					return [False, model]
 
-				if backtracks>=10:
+				if backtracks>=50:
 					print("Restarting")
 					backtrackToLevel(changed,symbols,model,0,lvl)
 					backtracks=0
+					# changed={}
 					lvl=0
 				else:
 					backtracks+=1

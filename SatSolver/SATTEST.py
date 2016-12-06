@@ -1,5 +1,5 @@
 import sys
-import time
+
 from IterativeSatSolver import *
 def satPlan(argv):
 
@@ -8,7 +8,8 @@ def satPlan(argv):
 	s=Solution()
 	print("Starting solver")
 	start_time=time.time()
-
+	
+	
 	print(len(cnf.clauses))
 	res, sol=solveIterativeCNF(cnf.clauses,cnf.symbols,s) #Change to return a Solution
 

@@ -44,11 +44,30 @@ def isPureSymbol(clauses,symb):
 
 def isUnitClause(clauses,symb,model):
 	for c in clauses:
-		if not any(l.signal==model[l.name] for l in c):
+		if not any(l.name in model.var_sol.keys() and l.signal==model[l.name] for l in c):
 			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
 			if len(list_unassigned)==1 and list_unassigned[0].name==symb:
 				return [True , list_unassigned[0].signal]
 	return [False, None]
+
+def getUnitSymbols(clauses,model):
+	unassigned_list=[]
+	unit_dict={}
+	for c in clauses:
+		n_unassigned=0
+		for l in c:
+			if l.signal==model[l.name]:
+				unassigned_list=[]
+				break
+
+			if l.name not in model.var_sol.keys():
+				unassigned_list.append(l)
+
+		if len(unassigned_list)==1 and unassigned_list[0].name not in unit_dict.keys():
+			unit_dict[unassigned_list[0].name]=unassigned_list[0].signal
+
+	return unit_dict
+
 
 def learnConflict(clauses,model):
 	learned=[]
