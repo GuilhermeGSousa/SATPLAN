@@ -3,7 +3,7 @@ import copy
 
 
 def isClauseActive(clause, model): #Make function to test is the clause is not yet assigned
-	pass
+	return not any(l.name in model.var_sol.keys() and l.signal==model[l.name] for l in clause)
 
 def isEveryClauseTrue(clauses,model):
 	for c in clauses:
@@ -29,46 +29,40 @@ def isAnyClauseFalse(clauses,model):
 			return [True,c]
 	return [False, None]				
 
-def isPureSymbol(clauses,symb):
+def isPureSymbol(clauses,symb,model):
 	currentSignal=None
 	for c in clauses:
-		for l in c:
-			if l.name==symb:
-				if currentSignal==None:
-					currentSignal=l.signal
-				elif currentSignal!=l.signal:
-					return [False, None]
+		if isClauseActive(c,model):
+			for l in c:
+				if l.name==symb:
+					if currentSignal==None:
+						currentSignal=l.signal
+					elif currentSignal!=l.signal:
+						return [False, None]
 	return [True,currentSignal]
 
 
 
 def isUnitClause(clauses,symb,model):
 	for c in clauses:
-		if not any(l.name in model.var_sol.keys() and l.signal==model[l.name] for l in c):
+		if isClauseActive(s,model):
 			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
 			if len(list_unassigned)==1 and list_unassigned[0].name==symb:
 				return [True , list_unassigned[0].signal]
 	return [False, None]
 
-def getUnitSymbols(clauses,model):
-	unassigned_list=[]
-	unit_dict={}
+def assignUnitSymbols(clauses,symbols,model):
+	changes=[]
 	for c in clauses:
-		n_unassigned=0
-		for l in c:
-			if l.signal==model[l.name]:
-				unassigned_list=[]
-				break
+		if isClauseActive(c,model):
+			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
+			if len(list_unassigned)==1:
+				symbols.remove(list_unassigned[0].name)
+				model[list_unassigned[0].name]=list_unassigned[0].signal
+				changes.append(list_unassigned[0].name)
 
-			if l.name not in model.var_sol.keys():
-				unassigned_list.append(l)
-
-		if len(unassigned_list)==1 and unassigned_list[0].name not in unit_dict.keys():
-			unit_dict[unassigned_list[0].name]=unassigned_list[0].signal
-
-	return unit_dict
-
-
+	return changes
+	
 def learnConflict(clauses,model):
 	learned=[]
 	for key in model.var_sol.keys():
