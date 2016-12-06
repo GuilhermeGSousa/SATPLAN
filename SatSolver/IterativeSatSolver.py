@@ -36,7 +36,8 @@ def deduceStatus(clauses,symbols,model):
 
 	change=assignUnitSymbols(clauses,symbols,model)
 
-	
+	if change not is None:
+		changes.extend(change)
 
 	if symbols is not None:
 		for s in symbols:
