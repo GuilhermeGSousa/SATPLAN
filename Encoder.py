@@ -119,6 +119,7 @@ class Encoder(object):
         self.bitwise = bit # True = bitwise, False = classical
         self.mapping = {} # DIMACS mapping
         self.file_string = argv[1] # input file name
+        self.discarded_actions = []
 
         f = open(self.file_string, 'r') # open input file
         for line in f: # go through every line
@@ -306,8 +307,9 @@ class Encoder(object):
                         del(self.sentence[-len(efx_list):])
                         if self.bitwise:
                             self.sentence.append(bits_list)
+                            self.discarded_actions.append(bits_list)
                         else:
-                            self.sentence.append([aglit])
+                            self.discarded_actions.append(aglit)
                         break
                     else:
                         efx_list.append(effect_glit)
@@ -331,8 +333,9 @@ class Encoder(object):
                         del (self.sentence[-len(precond_list):])
                         if self.bitwise:
                             self.sentence.append(bits_list)
+                            self.discarded_actions.append(bits_list)
                         else:
-                            self.sentence.append([aglit])
+                            self.discarded_actions.append(aglit)
                         break
                     else:
                         precond_list.append(precond_glit)
@@ -364,8 +367,13 @@ class Encoder(object):
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
                 aglit, aname = self.createIndexedActionLiteral(comb, action, False, t)
+                if not self.bitwise:
+                    if aglit in self.discarded_actions:
+                        continue
                 if self.bitwise:
                     bits_list = self.groundActionBits(mapping[aname], t)
+                    if bits_list in self.discarded_actions:
+                        continue
                 modified = {}
                 for effect in action.efx:
                     name = mapAndSubstitute(comb, action.args, effect.ident_template)
@@ -409,7 +417,8 @@ class Encoder(object):
         for action_name in name_actions:
             action_glit = GroundedLiteral(action_name, True)
             action_glit.indexGL(t)
-            at_least_one.append(action_glit)
+            if -action_glit not in self.discarded_actions:
+                at_least_one.append(action_glit)
         self.sentence.append(at_least_one)
 
         # At most one action per time step
@@ -419,6 +428,8 @@ class Encoder(object):
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
                 a = self.createIndexedActionLiteral(comb, action, False, t)[0]
+                if a in self.discarded_actions:
+                    continue
                 alist.append(a)
         for i, a1 in enumerate(alist):
             for j, a2 in enumerate(alist):
