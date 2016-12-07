@@ -39,7 +39,10 @@ def isPureSymbol(clauses,symb,model):
 						currentSignal=l.signal
 					elif currentSignal!=l.signal:
 						return [False, None]
-	return [True,currentSignal]
+	if currentSignal == None:
+		return[False,None]
+	else:
+		return[True,currentSignal]
 
 
 
