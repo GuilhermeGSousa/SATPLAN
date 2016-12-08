@@ -31,7 +31,7 @@ def decideBranch(branched, symbols, model):
     return [None, False]
 
 
-def deduceStatus(clauses, symbols, model):
+def deduceStatus(changed,clauses, symbols, model):
     changes = []
 
     if isEveryClauseTrue(clauses, model):
@@ -40,7 +40,9 @@ def deduceStatus(clauses, symbols, model):
         return ["SAT", changes]
 
     res, clause = isAnyClauseFalse(clauses, model)
+    
     if res:
+        learnConflict(clause,clauses,changed,model)
         model.success = False
         return ["CONFLICT", changes]
 
@@ -65,9 +67,18 @@ def deduceStatus(clauses, symbols, model):
 
     return ["OTHER", changes]
 
+def learnConflict(con_clause,clauses,changed,model): 
+    new_clause=[]
 
-def analyzeConflict(branched, changed, clauses, model, lvl):
-    # learnConflict(clauses,model)
+    for l in con_clause:
+        for key in changed.keys():
+            if l.name in changed[key]:
+                new_clause.append(Variable(changed[key][0],not model[changed[key][0]]))
+                break
+
+    clauses.append(new_clause)
+
+def analyzeConflict(branched, changed, model, lvl):
     if branched[changed[lvl][0]] == False:
         return lvl - 1
     else:
@@ -82,7 +93,7 @@ def analyzeConflict(branched, changed, clauses, model, lvl):
             steps_back += 1
 
 
-def backtrackToLevel(branched, changed, symbols, symb, model, blvl, lvl):
+def backtrackToLevel(branched, changed, symbols, model, blvl, lvl):
     for i in range(lvl, blvl, -1):
         symbol = changed[i][0]
         if i > 0:
@@ -103,32 +114,25 @@ def solveIterativeCNF(clauses, symbols, model=Solution()):
     lvl = 0
     backtracks = 0
     count = 0
+
+
+
+
     while True:
-        print(len(symbols))
-        # for Var, Val in model.var_sol.items():
-        #     if Val is None:
-        #         print(Var)
-        vec= [1,2,3,4,22,23,24,25,26,30,31,34,38,43,48,49,52,53,54,57,
-              60,61,63,70,75,77,80,87,88,89,90,95]
-        if all(y in model.var_sol.values() for y in vec):
-            if all(model.var_sol[x]==True for x in vec):
-                print('*********************************')
-        if None in model.var_sol.values():
-            print('---------------------------------')
         symb, val = decideBranch(branched, symbols, model)  # Implement heuristic here
 
         if symb is not None:
             lvl = lvl + 1
             changed[lvl] = [symb]
         while True:
-            status, changes = deduceStatus(clauses, symbols,
-                                           model)  # This function takes the longest to run for large input files
+            status, changes = deduceStatus(changed,clauses, symbols,
+                                           model)  # Th'is function takes the longest to run for large input files
             if lvl > 0:
                 changed[lvl].extend(changes)
             print(status)
             if status == "CONFLICT":
                 count += 1
-                blvl = analyzeConflict(branched, changed, clauses, model, lvl)
+                blvl = analyzeConflict(branched, changed, model, lvl)
                 if blvl < 0:
                     return [False, model]
 
@@ -140,7 +144,7 @@ def solveIterativeCNF(clauses, symbols, model=Solution()):
                 # 	lvl=0
                 # else:
                 # 	backtracks+=1
-                backtrackToLevel(branched, changed, symbols, symb, model, blvl, lvl)
+                backtrackToLevel(branched, changed, symbols, model, blvl, lvl)
                 lvl = blvl
                 break
             elif status == "SAT":
