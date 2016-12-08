@@ -115,7 +115,7 @@ def solveIterativeCNF(clauses, symbols, model=Solution()):
     backtracks = 0
     count = 0
 
-
+    changed[0] = deduceStatus(changed, clauses, symbols, model)[1]
 
 
     while True:

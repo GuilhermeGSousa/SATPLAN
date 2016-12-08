@@ -4,7 +4,7 @@ from IterativeSatSolver import *
 
 
 print("Reading file")
-cnf = CNF('b2.dat')
+cnf = CNF('dimacs2.dat')
 s = Solution()
 print("Starting solver")
 start_time = time.time()
