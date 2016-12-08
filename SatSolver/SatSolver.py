@@ -3,7 +3,7 @@ import copy
 
 
 def isClauseActive(clause, model): #Make function to test is the clause is not yet assigned
-	pass
+	return not any(l.name in model.var_sol.keys() and l.signal==model[l.name] for l in clause)
 
 def isEveryClauseTrue(clauses,model):
 	for c in clauses:
@@ -21,36 +21,51 @@ def isAnyClauseFalse(clauses,model):
 		clauseFalse=True
 		for l in c:
 			if not l.name in model.var_sol.keys():
-				return False
+				clauseFalse=False
 			else:
 				if model[l.name]==l.signal:
 					clauseFalse=False
 		if clauseFalse==True:
-			return True
-	return False				
+			return [True,c]
+	return [False, None]				
 
-def isPureSymbol(clauses,symb):
-	isPure=False
+def isPureSymbol(clauses,symb,model):
 	currentSignal=None
 	for c in clauses:
-		for l in c:
-			if l.name==symb:
-				if currentSignal==None:
-					currentSignal=l.signal
-				elif currentSignal!=l.signal:
-					return [False, None]
-	return [True,currentSignal]
+		if isClauseActive(c,model):
+			for l in c:
+				if l.name==symb:
+					if currentSignal==None:
+						currentSignal=l.signal
+					elif currentSignal!=l.signal:
+						return [False, None]
+	if currentSignal == None:
+		return[False,None]
+	else:
+		return[True,currentSignal]
 
 
 
 def isUnitClause(clauses,symb,model):
 	for c in clauses:
-		if not any(l.signal==model[l.name] for l in c):
+		if isClauseActive(s,model):
 			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
 			if len(list_unassigned)==1 and list_unassigned[0].name==symb:
 				return [True , list_unassigned[0].signal]
 	return [False, None]
 
+def assignUnitSymbols(clauses,symbols,model):
+	changes=[]
+	for c in clauses:
+		if isClauseActive(c,model):
+			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
+			if len(list_unassigned)==1:
+				symbols.remove(list_unassigned[0].name)
+				model[list_unassigned[0].name]=list_unassigned[0].signal
+				changes.append(list_unassigned[0].name)
+
+	return changes
+	
 def learnConflict(clauses,model):
 	learned=[]
 	for key in model.var_sol.keys():
@@ -60,16 +75,17 @@ def learnConflict(clauses,model):
 	return clauses
 
 
-def solveCNF(clauses,symbols,model=Solution(),lvl=0):
+def solveRecursiveCNF(clauses,symbols,model=Solution(),lvl=0):
 
 
 	if isEveryClauseTrue(clauses,model):
 		model.success = True
 		return (True, model) 
 
-	if isAnyClauseFalse(clauses,model):
+	res,clause =isAnyClauseFalse(clauses,model)
+	if res:
 		model.success = False
-		clauses=learnConflict(clauses,model)  #Clause learning (not improving run times)
+		learnConflict(clauses,model)  #Clause learning (not improving run times)
 		return (False, model)
 
 	for i in range(0,len(symbols)):
@@ -77,12 +93,12 @@ def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 		res, val = isPureSymbol(clauses,symbols[i])
 		if res:
 			model[symbols.pop(i)]=val
-			return solveCNF(clauses,symbols,model,lvl+1)
+			return solveRecursiveCNF(clauses,symbols,model,lvl+1)
 
 		res, val = isUnitClause(clauses,symbols[i],model)
 		if res:
 			model[symbols.pop(i)]=val
-			return solveCNF(clauses,symbols,model,lvl+1)
+			return solveRecursiveCNF(clauses,symbols,model,lvl+1)
 
 
 	rest = copy.deepcopy(symbols)
@@ -101,8 +117,8 @@ def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 	model_copy2[symb]=False
 
 
-	res1 ,model1 = solveCNF(clauses,rest,model_copy1,lvl+1)
-	res2 ,model2 = solveCNF(clauses,rest_copy1,model_copy2,lvl+1)
+	res1 ,model1 = solveRecursiveCNF(clauses,rest,model_copy1,lvl+1)
+	res2 ,model2 = solveRecursiveCNF(clauses,rest_copy1,model_copy2,lvl+1)
 
 	if res1:
 		model.var_sol=model1.var_sol
@@ -112,4 +128,3 @@ def solveCNF(clauses,symbols,model=Solution(),lvl=0):
 		return res2,model2
 	else:
 		return False,model
-

@@ -5,10 +5,8 @@ class Solution(object):
 		self.var_sol=var_sol
 
 	def __getitem__(self, i):
-		if i in self.var_sol.keys():
-			return self.var_sol[i]
-		else:
-			return None
+		return self.var_sol[i]
+
 	def __setitem__(self,idx,value):
 		self.var_sol[idx]=value
 
