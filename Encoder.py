@@ -93,7 +93,7 @@ def generateBinaryTable(list):
     # a dictionary named mapping whose keys are the actions'
     # names and the values are the assigned binary number
     nvars = len(list)
-    nbin = math.ceil(math.log(nvars,2))
+    nbin = math.floor(math.log(nvars,2))+1
     combinations = generatePossibleSets(nbin,[True,False])
     mapping={}
     for i,action_name in enumerate(list):
@@ -527,7 +527,7 @@ class Encoder(object):
         list_actions = self.nameActions()
         mapping = generateBinaryTable(list_actions)
         nvars = len(list_actions)
-        nbin = math.ceil(math.log(nvars, 2))
+        nbin = math.floor(math.log(nvars, 2))+1
         combinations = generatePossibleSets(nbin, [True, False])
         for comb in combinations:
             if comb not in mapping.values():
@@ -604,26 +604,6 @@ class Encoder(object):
         self.addGoalStates(t)
         # Translate to the DIMACS format
         self.translateDIMACS(t)
-
-
-        # # ISTO AJUDA A FAZER DEBUG
-        # print('--------------')
-        # f  = open('s0.txt','r')
-        # for line in f:
-        #     words = line.strip("\n").split()
-        #     vars = []
-        #     if line[0] == 'v':
-        #         for arg in words[1:]:
-        #             if arg !='0':
-        #                 if int(arg)>0:
-        #                     vars.append(int(arg))
-        #             else:
-        #                 break
-        # for var in vars:
-        #     for name,num in self.mapping.items():
-        #         if num == var:
-        #             print(name)
-
 
     def printSolution(self,t,Sol):
         # This function is responsible for reading the list
