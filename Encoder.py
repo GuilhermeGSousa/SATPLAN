@@ -419,21 +419,6 @@ class Encoder(object):
                                     self.sentence.append(bits_list + [glit1,glit2])
                                 else:
                                     self.sentence.append([aglit, glit1, glit2])
-                # for atom_name, list_terms in modified.items():
-                #     nargs = len(list_terms[0])
-                #     subset = generatePossibleSets(nargs, self.terms_list)
-                #     for comb2 in subset:
-                #         if comb2 not in list_terms:
-                #             name = groundedLiteralNameGenerator(atom_name, comb2)
-                #             for value in [True, False]:
-                #                 glit1 = GroundedLiteral(name, value)
-                #                 glit2 = -glit1
-                #                 glit1.indexGL(t)
-                #                 glit2.indexGL(t + 1)
-                #                 if self.bitwise:
-                #                     self.sentence.append(bits_list + [glit1,glit2])
-                #                 else:
-                #                     self.sentence.append([aglit, glit1, glit2])
 
     def areActionsConflicting(self,aglit1,aglit2):
         name1, terms1 = getFunctionNameTerms(aglit1.ident)
@@ -580,7 +565,7 @@ class Encoder(object):
         for lit in lits:
             if lit.ident not in self.mapping.keys():
                 self.mapping[lit.ident] = len(self.mapping) + 1
-        filename = 'dimacs' + ('_%s'%t) + '.dat'
+        filename = 'dimacs' + '.dat'#('_%s'%t) + '.dat'
         f = open(filename, 'w')
         f.write('c 75398 76312\n')
         nvars = len(self.mapping)
@@ -640,8 +625,8 @@ class Encoder(object):
         #             print(name)
 
 
-    def printSolution(self,t):
-        # This function is responsible for reading the file
+    def printSolution(self,t,Sol):
+        # This function is responsible for reading the list
         # with the solution from the SAT solver and for
         # interpreting the result in order to retrieve the actions
         # that have been assigned True in the solution;
@@ -651,57 +636,44 @@ class Encoder(object):
         # to actions and then fetch the correct name of the action and print
         # in the display from t=0 to t=h
 
-        # Get the correct file name
-        dot_sep = self.file_string.index(".")
-        name = self.file_string[0:dot_sep]
-        f = open(name+'_out'+'.dat', 'r') # output file from SAT solver
-
-        for line in f:
-            words = line.strip("\n").split()
-            if words == ['SAT']: # if satisfiable, read the file
-                result = True
-                continue
-            elif words == ['UNSAT']: # if not, print nothing and exit
-                result = False
-                break
-            else: # corresponds other lines in the file
-                vars = []
-                for arg in words[1:]:
-                    if int(arg) > 0:
-                        vars.append(int(arg)) # take variables assigned with True
-                print('-----------------')
-                print('Problem solution:')
-                print('-----------------')
-                if self.bitwise: # for the bitwise representation of actions
-                    list_actions = self.nameActions() # get actions' names
-                    bin_table = generateBinaryTable(list_actions) # generate mapping actions-binary numbers
-                    nbits = len(list(bin_table.values())[0])
-                    for h in range(t + 1):
-                        current_action = [False] * nbits
-                        for var in vars: # for every variable assigned True
-                            for name, num in self.mapping.items(): # for every correspondence in DIMACS mapping
-                                if num == var and name[0] == 'b' and int(name[-1]) == h:
-                                    # if it is an action bit at time t=h
-                                    bit_index = int(name[1]) # get bit index
-                                    current_action[bit_index] = True # build the action binary sequence
-                        for action_name, bits in bin_table.items(): # search for the sequence obtained
-                            if bits == current_action: # if we found the sequence...
-                                name = action_name # ... we found the corresponding action
-                                break
-                        print(name)
-                else: # for the classical representation of actions
-                    action_names = []
-                    for action in self.actions: # get the name of the actions (without arguments)
-                        action_names.append(getFunctionNameTerms(action.name_template)[0])
-                    for h in range(t+1): # search for every time step
-                        for var in vars: # check every variable assigned True by the solver
-                            for name, num in self.mapping.items(): # check the DIMACS mapping
-                                if num == var: # if a certain number is True...
-                                    pred_or_action_name = getFunctionNameTerms(name)[0]#...get name for that number
-                                    if pred_or_action_name in action_names and int(name[-1]) == h:
-                                        # ...and if it is an action (not a predicate) at time=h , then print
-                                        print(name[:-2])
-        f.close()
-        return result
+        if Sol[0] == 'UNSAT': # if unsatisfiable, exit
+            return False
+        vars = []
+        for arg in Sol[1:]:
+            if int(arg) > 0:
+                vars.append(int(arg)) # take variables assigned with True
+        print('-----------------')
+        print('Problem solution:')
+        print('-----------------')
+        if self.bitwise: # for the bitwise representation of actions
+            list_actions = self.nameActions() # get actions' names
+            bin_table = generateBinaryTable(list_actions) # generate mapping actions-binary numbers
+            nbits = len(list(bin_table.values())[0])
+            for h in range(t + 1):
+                current_action = [False] * nbits
+                for var in vars: # for every variable assigned True
+                    for name, num in self.mapping.items(): # for every correspondence in DIMACS mapping
+                        if num == var and name[0] == 'b' and int(name[-1]) == h:
+                            # if it is an action bit at time t=h
+                            bit_index = int(name[1]) # get bit index
+                            current_action[bit_index] = True # build the action binary sequence
+                for action_name, bits in bin_table.items(): # search for the sequence obtained
+                    if bits == current_action: # if we found the sequence...
+                        name = action_name # ... we found the corresponding action
+                        break
+                print(name)
+        else: # for the classical representation of actions
+            action_names = []
+            for action in self.actions: # get the name of the actions (without arguments)
+                action_names.append(getFunctionNameTerms(action.name_template)[0])
+            for h in range(t+1): # search for every time step
+                for var in vars: # check every variable assigned True by the solver
+                    for name, num in self.mapping.items(): # check the DIMACS mapping
+                        if num == var: # if a certain number is True...
+                            pred_or_action_name = getFunctionNameTerms(name)[0]#...get name for that number
+                            if pred_or_action_name in action_names and int(name[-1]) == h:
+                                # ...and if it is an action (not a predicate) at time=h , then print
+                                print(name[:-2])
+        return True
 
 

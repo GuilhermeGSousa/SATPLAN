@@ -5,10 +5,8 @@ class Solution(object):
 		self.var_sol=var_sol
 
 	def __getitem__(self, i):
-		if i in self.var_sol.keys():
-			return self.var_sol[i]
-		else:
-			return None
+		return self.var_sol[i]
+
 	def __setitem__(self,idx,value):
 		self.var_sol[idx]=value
 
@@ -38,7 +36,7 @@ class CNF(object):
 
 def readCnf(file_name):
 	symbols=[]
-	clauses=set([]) #Cant be frozen to be able to learn
+	clauses=[]#Cant be frozen to be able to learn
 	f=open(file_name)
 
 	for line in f:
@@ -60,7 +58,7 @@ def readCnf(file_name):
 						else:
 							obj_list.append(Variable(int(w),True))
 
-				clauses.add(frozenset(obj_list))
+				clauses.append(obj_list)
 	f.close()
 
 	return [clauses, symbols]
