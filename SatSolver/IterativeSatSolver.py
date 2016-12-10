@@ -132,6 +132,12 @@ def solveIterativeCNF(clauses, symbols, model=Solution()):
     backtracks = 0
     count = 0
 
+<<<<<<< HEAD
+=======
+    changed[0] = deduceStatus(changed, clauses, symbols, model)[1]
+
+
+>>>>>>> cc0d86c907e35b9e0b75791fc6f7789a8abd095a
     while True:
         print(len(symbols))
         symb, val = decideBranch(clauses,branched, symbols, model)  # Implement heuristic here
