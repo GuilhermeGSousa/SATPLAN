@@ -1,32 +1,37 @@
 from SatSolver import *
 import time
+import random
 
-
-def decideBranch(branched, symbols, model):
+def decideBranch(clauses,branched, symbols, model):
     if symbols is not None and len(symbols) > 0:
+        max_heuristic=[None,-10,None] #Symbol;Heuristic
 
-        for s in symbols:
+        for result in symbols:
+        #     h=heuristicDLIS(clauses,s,model)
+        #     if h>max_heuristic[1]:
+        #         max_heuristic[0]=s
+        #         max_heuristic[1]=h
+        #         max_heuristic[2]=True
 
-            if branched.keys() is None:
-                val = s
-                symbols.remove(s)
-                model[val] = False
-                branched[val] = False
-                return [val, False]
+        #     h=heuristicDLIS(clauses,s,model,False)
+        #     if h>max_heuristic[1]:
+        #         max_heuristic[0]=s
+        #         max_heuristic[1]=h
+        #         max_heuristic[2]=False
 
-            if s not in branched.keys():
-                val = s
-                symbols.remove(s)
-                model[val] = False
-                branched[val] = False
-                return [val, False]
+        # signal=max_heuristic[2]
+            signal=False
+            if branched.keys() is None or result not in branched.keys():
+                symbols.remove(result)
+                model[result] = signal
+                branched[result] = [signal]
+                return [result, signal]
 
-            if branched[s] == False:
-                val = s
-                symbols.remove(s)
-                model[val] = True
-                branched[val] = True
-                return [val, True]
+            else:
+                symbols.remove(result)
+                model[result] = not branched[result][0]
+                branched[result].append(not branched[result][0])
+                return [result, not branched[result][0]]
 
     return [None, False]
 
@@ -54,12 +59,6 @@ def deduceStatus(changed,clauses, symbols, model):
                 model[s] = val
                 changes.append(s)
                 continue
-                # res, val = isUnitClause(clauses,s,model)
-                # if res:
-                # 	symbols.remove(s)
-                # 	model[s]=val
-                # 	changes.append(s)
-                # 	continue
     change = assignUnitSymbols(clauses, symbols, model)
 
     if change is not None:
@@ -69,17 +68,35 @@ def deduceStatus(changed,clauses, symbols, model):
 
 def learnConflict(con_clause,clauses,changed,model): 
     new_clause=[]
-
-    for l in con_clause:
-        for key in changed.keys():
-            if l.name in changed[key]:
-                new_clause.append(Variable(changed[key][0],not model[changed[key][0]]))
-                break
-
+    # for l in con_clause:
+    #     for key in changed.keys():
+    #         if l.name in changed[key]:
+    #             new_clause.append(Variable(changed[key][0],not model[changed[key][0]]))
+    #             break
+    for key in changed.keys():
+        if key > 0:
+           new_clause.append(Variable(changed[key][0],not model[changed[key][0]])) 
     clauses.append(new_clause)
 
+
+def heuristicDLIS(clauses,symb,model,signal=True):
+    h=0
+    for c in clauses:
+        if isClauseActive(c,model):
+            if any(l.name==symb and l.signal==signal for l in c):
+                h+=1
+    return h
+def heuristicJW(clauses,symb,model,signal=True):
+    h=0
+    for c in clauses:
+        if isClauseActive(c,model):
+            if any(l.name==symb and l.signal==signal for l in c):
+                h+=2**(-len(c))
+    return h
+
 def analyzeConflict(branched, changed, model, lvl):
-    if branched[changed[lvl][0]] == False:
+
+    if changed[lvl][0] is not None and len(branched[changed[lvl][0]])==1:
         return lvl - 1
     else:
         steps_back = 1
@@ -88,7 +105,7 @@ def analyzeConflict(branched, changed, model, lvl):
             if blvl < 0:
                 return blvl
             previous_symb = changed[lvl - steps_back][0]
-            if branched[previous_symb] == False:
+            if len(branched[previous_symb]) == 1:
                 return blvl
             steps_back += 1
 
@@ -115,11 +132,9 @@ def solveIterativeCNF(clauses, symbols, model=Solution()):
     backtracks = 0
     count = 0
 
-
-
-
     while True:
-        symb, val = decideBranch(branched, symbols, model)  # Implement heuristic here
+        print(len(symbols))
+        symb, val = decideBranch(clauses,branched, symbols, model)  # Implement heuristic here
 
         if symb is not None:
             lvl = lvl + 1
