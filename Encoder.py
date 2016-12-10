@@ -440,6 +440,7 @@ class Encoder(object):
         name2, terms2 = getFunctionNameTerms(aglit2.ident)
         temp_dict = {aglit1.ident:[name1,terms1],aglit2.ident:[name2,terms2]}
         temp_efx={}
+        temp_precond={}
         for action in self.actions:
             action_name = getFunctionNameTerms(action.name_template)[0]
             for key,val in temp_dict.items():
@@ -451,6 +452,12 @@ class Encoder(object):
                             temp_efx[key]=[ename]
                         else:
                             temp_efx[key].append(ename)
+                    for precond in action.preconds:
+                        ename =  mapAndSubstitute(val[1],action.args,precond.ident_template)
+                        if key not in temp_precond.keys():
+                            temp_precond[key]=[ename]
+                        else:
+                            temp_precond[key].append(ename)
         res = False
         for ef1 in temp_efx[aglit1.ident]:
             ef1_is_neg = False
@@ -464,6 +471,20 @@ class Encoder(object):
                     ef2 = ef2[1:]
                 if ef1==ef2:
                     if (ef1_is_neg and not ef2_is_neg) or (not ef1_is_neg and ef2_is_neg):
+                        res = True
+                        return res
+        for p1 in temp_precond[aglit1.ident]:
+            p1_is_neg = False
+            if p1[0] == '-':
+                p1_is_neg = True
+                p1 = p1[1:]
+            for p2 in temp_precond[aglit2.ident]:
+                p2_is_neg = False
+                if p2[0] == '-':
+                    p2_is_neg = True
+                    p2 = p2[1:]
+                if p1 == p2:
+                    if (p1_is_neg and not p2_is_neg) or (not p1_is_neg and p2_is_neg):
                         res = True
                         return res
         return res
