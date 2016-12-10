@@ -120,6 +120,7 @@ class Encoder(object):
         self.mapping = {} # DIMACS mapping
         self.file_string = argv[1] # input file name
         self.discarded_actions = []
+        self.predicates = []
 
         f = open(self.file_string, 'r') # open input file
         for line in f: # go through every line
@@ -131,6 +132,8 @@ class Encoder(object):
                     for t in terms: # add new found constants to the list
                         if not (t in self.terms_list):
                             self.terms_list.append(t)
+                    if not any( pred[0]==name for pred in self.predicates):
+                        self.predicates.append([name,len(terms)])
 
                     if name[0] == "-":
                         signal = False
@@ -160,6 +163,8 @@ class Encoder(object):
                     if arg != "":
                         # Create an Atom object from the precondition's name and its template terms
                         precond_name, precond_terms = getFunctionNameTerms(arg)
+                        if not any(pred[0] == precond_name for pred in self.predicates):
+                            self.predicates.append([precond_name, len(precond_terms)])
                         template_name = templateNameCreator(precond_name, precond_terms)
                         new_atom = Atom(template_name, len(precond_terms))
                         new_action.addPreCondition(new_atom) # add precondition to the action
@@ -169,6 +174,11 @@ class Encoder(object):
                     if arg != "":
                         # Create an Atom object from the effect's name and its template terms
                         effect_name, effect_terms = getFunctionNameTerms(arg)
+                        name = effect_name
+                        if name[0]=='-':
+                           name = name[1:]
+                        if not any(pred[0] == name for pred in self.predicates):
+                            self.predicates.append([name, len(effect_terms)])
                         template_name = templateNameCreator(effect_name, effect_terms)
                         new_atom = Atom(template_name, len(effect_terms))
                         new_action.addEffect(new_atom) # add effect to the action
@@ -182,6 +192,8 @@ class Encoder(object):
                     for t in terms: # add new found constants to the list
                         if not (t in self.terms_list):
                             self.terms_list.append(t)
+                    if not any(pred[0] == name for pred in self.predicates):
+                        self.predicates.append([name, len(terms)])
 
                     if name[0] == "-":
                         signal = False
@@ -216,25 +228,35 @@ class Encoder(object):
         # initial state can generate the same negated literal. In the end, both
         # the initial state literals and the negated ones are indexed with t=0
         # and added to the SAT sentence.
-        ninit = len(self.init)
-        for i in range(ninit):
-            literal = self.init[i]
-            name, args = getFunctionNameTerms(literal.ident)
-            nargs = len(args)
-            combinations = generatePossibleSets(nargs, self.terms_list)
+        to_append=[]
+        for pred in self.predicates:
+            combinations = generatePossibleSets(pred[1], self.terms_list)
             for comb in combinations:
-                flag = False
-                if comb != args:
-                    ident = groundedLiteralNameGenerator(name, comb)
-                    for glit in self.init:
-                        if ident == glit.ident:
-                            flag = True
-                            break
-                    if flag:
-                        continue
-                    else:
-                        g_lit = GroundedLiteral(ident, not literal.signal)
-                        self.init.append(g_lit)
+                ident = groundedLiteralNameGenerator(pred[0], comb)
+                if not any(ident==iglit.ident for iglit in self.init):
+                    if not any(ident == aglit.ident for aglit in to_append):
+                        g_lit = GroundedLiteral(ident, False)
+                        to_append.append(g_lit)
+        self.init.extend(to_append)
+        # ninit = len(self.init)
+        # for i in range(ninit):
+        #     literal = self.init[i]
+        #     name, args = getFunctionNameTerms(literal.ident)
+        #     nargs = len(args)
+        #     combinations = generatePossibleSets(nargs, self.terms_list)
+        #     for comb in combinations:
+        #         flag = False
+        #         if comb != args:
+        #             ident = groundedLiteralNameGenerator(name, comb)
+        #             for glit in self.init:
+        #                 if ident == glit.ident:
+        #                     flag = True
+        #                     break
+        #             if flag:
+        #                 continue
+        #             else:
+        #                 g_lit = GroundedLiteral(ident, not literal.signal)
+        #                 self.init.append(g_lit)
         for literal in self.init:
             literal.indexGL(0)
             self.sentence.append([literal])
@@ -370,7 +392,7 @@ class Encoder(object):
                 if not self.bitwise:
                     if aglit in self.discarded_actions:
                         continue
-                if self.bitwise:
+                else:
                     bits_list = self.groundActionBits(mapping[aname], t)
                     if bits_list in self.discarded_actions:
                         continue
@@ -383,12 +405,11 @@ class Encoder(object):
                         modified[atom_name].append(terms)
                     else:
                         modified[atom_name] = [terms]
-                for atom_name, list_terms in modified.items():
-                    nargs = len(list_terms[0])
-                    subset = generatePossibleSets(nargs, self.terms_list)
+                for pred in self.predicates:
+                    subset = generatePossibleSets(pred[1],self.terms_list)
                     for comb2 in subset:
-                        if comb2 not in list_terms:
-                            name = groundedLiteralNameGenerator(atom_name, comb2)
+                        if not (pred[0] in modified.keys() and comb2 in modified[pred[0]]):
+                            name = groundedLiteralNameGenerator(pred[0], comb2)
                             for value in [True, False]:
                                 glit1 = GroundedLiteral(name, value)
                                 glit2 = -glit1
@@ -398,6 +419,55 @@ class Encoder(object):
                                     self.sentence.append(bits_list + [glit1,glit2])
                                 else:
                                     self.sentence.append([aglit, glit1, glit2])
+                # for atom_name, list_terms in modified.items():
+                #     nargs = len(list_terms[0])
+                #     subset = generatePossibleSets(nargs, self.terms_list)
+                #     for comb2 in subset:
+                #         if comb2 not in list_terms:
+                #             name = groundedLiteralNameGenerator(atom_name, comb2)
+                #             for value in [True, False]:
+                #                 glit1 = GroundedLiteral(name, value)
+                #                 glit2 = -glit1
+                #                 glit1.indexGL(t)
+                #                 glit2.indexGL(t + 1)
+                #                 if self.bitwise:
+                #                     self.sentence.append(bits_list + [glit1,glit2])
+                #                 else:
+                #                     self.sentence.append([aglit, glit1, glit2])
+
+    def areActionsConflicting(self,aglit1,aglit2):
+        name1, terms1 = getFunctionNameTerms(aglit1.ident)
+        name2, terms2 = getFunctionNameTerms(aglit2.ident)
+        temp_dict = {aglit1.ident:[name1,terms1],aglit2.ident:[name2,terms2]}
+        temp_efx={}
+        for action in self.actions:
+            action_name = getFunctionNameTerms(action.name_template)[0]
+            for key,val in temp_dict.items():
+                name = val[0]
+                if name == action_name:
+                    for effect in action.efx:
+                        ename =  mapAndSubstitute(val[1],action.args,effect.ident_template)
+                        if key not in temp_efx.keys():
+                            temp_efx[key]=[ename]
+                        else:
+                            temp_efx[key].append(ename)
+        res = False
+        for ef1 in temp_efx[aglit1.ident]:
+            ef1_is_neg = False
+            if ef1[0]=='-':
+                ef1_is_neg = True
+                ef1 = ef1[1:]
+            for ef2 in temp_efx[aglit2.ident]:
+                ef2_is_neg = False
+                if ef2[0] == '-':
+                    ef2_is_neg = True
+                    ef2 = ef2[1:]
+                if ef1==ef2:
+                    if (ef1_is_neg and not ef2_is_neg) or (not ef1_is_neg and ef2_is_neg):
+                        res = True
+                        return res
+        return res
+
 
     def oneActionPerTimeStep(self, t):
         # This function is called when the classical representation for actions is
@@ -433,7 +503,7 @@ class Encoder(object):
                 alist.append(a)
         for i, a1 in enumerate(alist):
             for j, a2 in enumerate(alist):
-                if j > i:
+                if j > i and not self.areActionsConflicting(a1,a2):
                     self.sentence.append([a2, a1])
 
     def negateUnassignedActions(self,t):
@@ -489,7 +559,7 @@ class Encoder(object):
         for lit in lits:
             if lit.ident not in self.mapping.keys():
                 self.mapping[lit.ident] = len(self.mapping) + 1
-        filename = 'dimacs' + ('%s'%t) + '.dat'
+        filename = 'dimacs' + ('_%s'%t) + '.dat'
         f = open(filename, 'w')
         f.write('c 75398 76312\n')
         nvars = len(self.mapping)
