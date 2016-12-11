@@ -93,7 +93,9 @@ def generateBinaryTable(list):
     # a dictionary named mapping whose keys are the actions'
     # names and the values are the assigned binary number
     nvars = len(list)
-    nbin = math.floor(math.log(nvars,2))+1
+    nbin = math.ceil(math.log(nvars,2))
+    if nbin == 0:
+        nbin =1
     combinations = generatePossibleSets(nbin,[True,False])
     mapping={}
     for i,action_name in enumerate(list):
@@ -527,7 +529,9 @@ class Encoder(object):
         list_actions = self.nameActions()
         mapping = generateBinaryTable(list_actions)
         nvars = len(list_actions)
-        nbin = math.floor(math.log(nvars, 2))+1
+        nbin = math.ceil(math.log(nvars, 2))
+        if nbin == 0:
+            nbin = 1
         combinations = generatePossibleSets(nbin, [True, False])
         for comb in combinations:
             if comb not in mapping.values():
