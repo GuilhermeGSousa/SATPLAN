@@ -1,7 +1,7 @@
 import sys
 from IterativeSatSolver import *
 
-
+# Function calling and returning result from SAT Solver
 def solver():
 
 	cnf=CNF('dimacs.dat')

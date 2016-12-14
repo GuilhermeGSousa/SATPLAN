@@ -2,25 +2,13 @@ from SatSolver import *
 import time
 import random
 
+#Decides next assignment based on previous branches
 def decideBranch(clauses,branched, symbols, model):
     if symbols is not None and len(symbols) > 0:
         max_heuristic=[None,-10,None] #Symbol;Heuristic
 
         for result in symbols:
-            # h=heuristicJW(clauses,s,model)
-            # if h>max_heuristic[1]:
-            #     max_heuristic[0]=s
-            #     max_heuristic[1]=h
-            #     max_heuristic[2]=True
 
-            # h=heuristicJW(clauses,s,model,False)
-            # if h>max_heuristic[1]:
-            #     max_heuristic[0]=s
-            #     max_heuristic[1]=h
-            #     max_heuristic[2]=False
-
-            # signal=max_heuristic[2]
-            # result=max_heuristic[0]
             signal=False
 
             if branched.keys() is None or result not in branched.keys():
@@ -37,7 +25,7 @@ def decideBranch(clauses,branched, symbols, model):
 
     return [None, False]
 
-
+#Propagates constraints and checks for conflicts and solved problem
 def deduceStatus(changed,clauses, symbols, model):
     changes = []
 
@@ -48,7 +36,7 @@ def deduceStatus(changed,clauses, symbols, model):
     res, clause = isAnyClauseFalse(clauses, model)
     
     if res:
-        #learnConflict(clause,clauses,changed,model)
+        learnConflict(clause,clauses,changed,model)
         model.success = False
         return ["CONFLICT", changes]
 
@@ -68,26 +56,18 @@ def deduceStatus(changed,clauses, symbols, model):
     else:
         return ["BRANCH",changes]
 
+#Learns from a conflict and adds a clause to clauses list
 def learnConflict(con_clause,clauses,changed,model): 
     new_clause=[]
     for l in con_clause:
         for key in changed.keys():
             if l.name in changed[key]:
                 new_clause.append(Variable(changed[key][0],not model[changed[key][0]]))
-                break
-    # for key in changed.keys():
-    #     if key > 0:
-    #        new_clause.append(Variable(changed[key][0],not model[changed[key][0]])) 
+                break 
     clauses.append(new_clause)
 
 
-def heuristicDLIS(clauses,symb,model,signal=True):
-    h=0
-    for c in clauses:
-        if isClauseActive(c,model):
-            if any(l.name==symb and l.signal==signal for l in c):
-                h+=1
-    return h
+#Returns value from heuristic
 def heuristicJW(clauses,symb,model,signal=True):
     h=0
     for c in clauses:
@@ -96,6 +76,7 @@ def heuristicJW(clauses,symb,model,signal=True):
                 h+=2**(-len(c))
     return h
 
+#Returns backtrack level based on conflict
 def analyzeConflict(branched, changed, model, lvl):
 
     if changed[lvl][0]!=[] and len(branched[changed[lvl][0]])==1:
@@ -111,7 +92,7 @@ def analyzeConflict(branched, changed, model, lvl):
                 return blvl
             steps_back += 1
 
-
+#Backtracks model to a given decision level
 def backtrackToLevel(branched, changed, symbols, model, blvl, lvl):
     for i in range(lvl, blvl, -1):
         symbol = changed[i][0]
@@ -126,7 +107,7 @@ def backtrackToLevel(branched, changed, symbols, model, blvl, lvl):
         if i > blvl + 1:
             del branched[symbol]
 
-
+#Iterative DPLL algorithm
 def solveIterativeCNF(clauses, symbols, model=Solution()):
     branched = {}
     changed = {}

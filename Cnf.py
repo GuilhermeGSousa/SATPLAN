@@ -1,4 +1,4 @@
-class Solution(object):
+class Solution(object):#Object containing the solution to a SAT problem
 	"""docstring for Solution"""
 	def __init__(self, success=False, var_sol={}):
 		self.success=success
@@ -10,7 +10,7 @@ class Solution(object):
 	def __setitem__(self,idx,value):
 		self.var_sol[idx]=value
 
-class Variable(object):
+class Variable(object): #Object representing a clause variable
 	"""docstring for Variable"""
 	def __init__(self, name, signal=True):
 		self.name = name
@@ -23,7 +23,7 @@ class Variable(object):
 		return hash(str(self.name) + str(self.signal))
 
 
-class CNF(object):
+class CNF(object): #Object representing a sat problem
 	"""docstring for SatSolver"""
 	def __init__(self, file_name):
 		
@@ -34,7 +34,7 @@ class CNF(object):
 		self.symbols=symbols
 
 
-def readCnf(file_name):
+def readCnf(file_name): #Function that creates a CNF object from a dimacs file
 	symbols=[]
 	clauses=[]#Cant be frozen to be able to learn
 	f=open(file_name)

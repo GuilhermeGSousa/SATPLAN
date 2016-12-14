@@ -5,7 +5,7 @@ import copy
 def isClauseActive(clause, model): #Make function to test is the clause is not yet assigned
 	return not any(l.name in model.var_sol.keys() and l.signal==model[l.name] for l in clause)
 
-def isEveryClauseTrue(clauses,model):
+def isEveryClauseTrue(clauses,model):# Given a model, tests if every clause is true
 	for c in clauses:
 		clauseFalse=True
 		for l in c:
@@ -16,7 +16,7 @@ def isEveryClauseTrue(clauses,model):
 			return False
 	return True
 
-def isAnyClauseFalse(clauses,model):
+def isAnyClauseFalse(clauses,model):#For a given model, finds any false clause
 	for c in clauses:
 		clauseFalse=True
 		for l in c:
@@ -29,7 +29,7 @@ def isAnyClauseFalse(clauses,model):
 			return [True,c]
 	return [False, None]				
 
-def isPureSymbol(clauses,symb,model):
+def isPureSymbol(clauses,symb,model):#checks if a symbol is pure
 	currentSignal=None
 	for c in clauses:
 		if isClauseActive(c,model):
@@ -46,7 +46,7 @@ def isPureSymbol(clauses,symb,model):
 
 
 
-def isUnitClause(clauses,symb,model):
+def isUnitClause(clauses,symb,model):#checks if a simbol is the last unassigned variable in a clause
 	for c in clauses:
 		if isClauseActive(s,model):
 			list_unassigned=[l for l in c if l.name not in model.var_sol.keys()]
@@ -54,7 +54,7 @@ def isUnitClause(clauses,symb,model):
 				return [True , list_unassigned[0].signal]
 	return [False, None]
 
-def assignUnitSymbols(clauses,symbols,model):
+def assignUnitSymbols(clauses,symbols,model):#Puts all unit symbols in the model
 	changes=[]
 	for c in clauses:
 		if isClauseActive(c,model):
@@ -66,65 +66,3 @@ def assignUnitSymbols(clauses,symbols,model):
 
 	return changes
 	
-def learnConflict(clauses,model):
-	learned=[]
-	for key in model.var_sol.keys():
-		tmp=not model[key]
-		learned.append(Variable(key,tmp))
-	clauses.add(frozenset(learned))
-	return clauses
-
-
-def solveRecursiveCNF(clauses,symbols,model=Solution(),lvl=0):
-
-
-	if isEveryClauseTrue(clauses,model):
-		model.success = True
-		return (True, model) 
-
-	res,clause =isAnyClauseFalse(clauses,model)
-	if res:
-		model.success = False
-		learnConflict(clauses,model)  #Clause learning (not improving run times)
-		return (False, model)
-
-	for i in range(0,len(symbols)):
-
-		res, val = isPureSymbol(clauses,symbols[i])
-		if res:
-			model[symbols.pop(i)]=val
-			return solveRecursiveCNF(clauses,symbols,model,lvl+1)
-
-		res, val = isUnitClause(clauses,symbols[i],model)
-		if res:
-			model[symbols.pop(i)]=val
-			return solveRecursiveCNF(clauses,symbols,model,lvl+1)
-
-
-	rest = copy.deepcopy(symbols)
-	symb = rest.pop(0)  #Variable selection heuristic goes here
-
-	for i in range(0,lvl):
-		print("  ",end="")
-	print("Branching at "+str(symb))
-
-	rest_copy1=copy.deepcopy(rest)
-	model_copy1=copy.deepcopy(model) 
-	model_copy2=copy.deepcopy(model)
-
-
-	model_copy1[symb]=True
-	model_copy2[symb]=False
-
-
-	res1 ,model1 = solveRecursiveCNF(clauses,rest,model_copy1,lvl+1)
-	res2 ,model2 = solveRecursiveCNF(clauses,rest_copy1,model_copy2,lvl+1)
-
-	if res1:
-		model.var_sol=model1.var_sol
-		return res1,model1
-	if res2:
-		model.var_sol=model2.var_sol
-		return res2,model2
-	else:
-		return False,model
