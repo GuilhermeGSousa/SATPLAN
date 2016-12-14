@@ -21,7 +21,7 @@ def getFunctionNameTerms(f_string):
 def templateNameCreator(f_name, terms):
     # This function receives the function name and
     # its terms and rewrites its name in the format
-    #             'function($arg1,$arg2)'
+    #          'function($arg1,$arg2)'
     # in order to use the method from the string object
     # further ahead
     template_name = f_name + "("
@@ -103,6 +103,10 @@ def generateBinaryTable(list):
     return mapping
 
 def getArgsIndexes(name,aname):
+    # This function checks if any subitem in 'name'
+    # is included in 'aname'
+    # It is used to get which arguments are used
+    # by an action.
     fargs = getFunctionNameTerms(name)[1]
     aargs = getFunctionNameTerms(aname)[1]
     index_list=[]
@@ -122,7 +126,6 @@ class Encoder(object):
         # This method initializes utility data and reads the input file;
         # It assumes all the constants of the problem are present in the
         # initial and goal states
-
         self.init = []  # initial state grounded literals
         self.goals = []  # goal state grounded literals
         self.sentence = []  # sentence at time t=h
@@ -133,7 +136,7 @@ class Encoder(object):
         self.mapping = {} # DIMACS mapping
         self.file_string = argv[1] # input file name
         self.discarded_actions = []
-        self.predicates = []
+        self.predicates = [] #predicates present in the Hebrand base
 
         f = open(self.file_string, 'r') # open input file
         for line in f: # go through every line
@@ -181,7 +184,6 @@ class Encoder(object):
                         template_name = templateNameCreator(precond_name, precond_terms)
                         new_atom = Atom(template_name, len(precond_terms))
                         new_action.addPreCondition(new_atom) # add precondition to the action
-                        #print(template_name)
                 # Go through the effects
                 for arg in effect_part:
                     if arg != "":
@@ -195,13 +197,11 @@ class Encoder(object):
                         template_name = templateNameCreator(effect_name, effect_terms)
                         new_atom = Atom(template_name, len(effect_terms))
                         new_action.addEffect(new_atom) # add effect to the action
-                        #print(template_name)
                 self.actions.append(new_action)
 
             if line[0] == 'G': # if the line describes a ground state
                 for arg in words[1:]:
                     name, terms = getFunctionNameTerms(arg)
-                    # USE name and terms list here
                     for t in terms: # add new found constants to the list
                         if not (t in self.terms_list):
                             self.terms_list.append(t)
@@ -281,6 +281,11 @@ class Encoder(object):
 
 
     def getSplittingBits(self):
+        # This function is used to determine how many bits are necessary
+        # to repreent the actions when bitwise overloaded splitting is
+        # used. It returns de number of bits to represent the type of action
+        # 'nbitsA' and the number of bits to represent each argument 'nbitsC'
+        # and the maximum number of arguments 'nmax'
         nmax = max([len(action.args) for action in self.actions])
         nbitsA = math.ceil(math.log(len(self.actions), 2))
         nbitsA = 1 if nbitsA == 0 else nbitsA
@@ -290,6 +295,11 @@ class Encoder(object):
         return nmax, nbitsA, nbitsC
 
     def generateBOLSmapping(self, alist):
+        # This function generates a dictionary where the keys are
+        # the names of grounded actions and the values are the
+        # corresponding bit sequences.
+        # Actions with a number of arguments smaller than the maximum
+        # get assigned a sequence with the same length
         names_actions = []
         for action in self.actions:
             names_actions.append(getFunctionNameTerms(action.name_template)[0])
@@ -310,7 +320,7 @@ class Encoder(object):
         return mapping
 
     def factoring(self,index_list, bits_list):
-        # keep only the bits that represent
+        # Keep only the bits in 'bits_list' that represent
         # the arguments indexed in index_list
         nmax, nbitsA, nbitsC = self.getSplittingBits()
         used_bits = bits_list[0:nbitsA] # the action is always present
@@ -426,7 +436,9 @@ class Encoder(object):
         # literal,'glit1', the clause '-A or -glit1 or glit2' is added to the sentence
         # with 'glit1' corresponding to time step t and 'glit2' to time step t+1;
         # Two clauses are created, with 'glit1' assuming a positive and a negative
-        # sign and 'glit2' the opposite sign to 'glit1'.
+        # sign and 'glit2' the opposite sign to 'glit1';
+        # Condition statements are added to prevent discarded actions (impossible actions)
+        # to generate a redundant clause.
         if self.bitwise:
             mapping = generateBinaryTable(self.nameActions())
         elif self.BOLS:
@@ -463,7 +475,6 @@ class Encoder(object):
                                 glit1.indexGL(t)
                                 glit2.indexGL(t + 1)
                                 if self.BOLS:
-                                    #self.sentence.append(bits_list + [glit1,glit2])
                                     if pred[0] not in modified.keys():
                                         used_bits = self.factoring([], bits_list)
                                         self.sentence.append(used_bits + [glit1, glit2])
@@ -485,6 +496,10 @@ class Encoder(object):
 
 
     def areActionsConflicting(self,aglit1,aglit2):
+        # This function checks whether two actions are conflicting, i.e., if they
+        # have contradictory effects or preconditions.
+        # It stores the effects and preconditions in temporary dictionaries
+        # and then checks those values to see if there are any conflicts.
         name1, terms1 = getFunctionNameTerms(aglit1.ident)
         name2, terms2 = getFunctionNameTerms(aglit2.ident)
         temp_dict = {aglit1.ident:[name1,terms1],aglit2.ident:[name2,terms2]}
@@ -552,6 +567,8 @@ class Encoder(object):
         # These clauses are created by creating a list with all grounded actions being negated
         # and then for every pair of them, create a clause like '-A1 or -A2' to stop both of them
         # from being True.
+        # Discarded (impossible) actions do not need to be represented here because they result
+        # in a True clause (redundancy).
         at_least_one = []
         name_actions = self.nameActions()
         for action_name in name_actions:
@@ -631,7 +648,7 @@ class Encoder(object):
         for lit in lits:
             if lit.ident not in self.mapping.keys():
                 self.mapping[lit.ident] = len(self.mapping) + 1
-        filename = 'dimacs' + '.dat'#'('%s'%t) + '.dat'
+        filename = 'dimacs' + '.dat'
         f = open(filename, 'w')
         f.write('c 75398 76312\n')
         nvars = len(self.mapping)
@@ -676,12 +693,11 @@ class Encoder(object):
         # with the solution from the SAT solver and for
         # interpreting the result in order to retrieve the actions
         # that have been assigned True in the solution;
-        # It has two different approaches for bitwise and classical
-        # representation of actions, but the idea is to get all the variables
-        # that have been assigned True and look for the ones that correspond
-        # to actions and then fetch the correct name of the action and print
-        # in the display from t=0 to t=h
-
+        # It has three different approaches for bitwise, overloaded bitwise and
+        # classical representation of actions, but the idea is to get all the
+        # variables that have been assigned True and look for the ones that
+        # correspond to actions and then fetch the correct name of the action
+        # and print in the display from t=0 to t=h
         if Sol[0] == 'UNSAT': # if unsatisfiable, exit
             return False
         vars = []
