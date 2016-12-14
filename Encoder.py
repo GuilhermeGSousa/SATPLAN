@@ -94,8 +94,7 @@ def generateBinaryTable(list):
     # names and the values are the assigned binary number
     nvars = len(list)
     nbin = math.ceil(math.log(nvars,2))
-    if nbin == 0:
-        nbin =1
+    nbin = 1 if nbin == 0 else nbin
     combinations = generatePossibleSets(nbin,[True,False])
     mapping={}
     for i,action_name in enumerate(list):
@@ -103,12 +102,23 @@ def generateBinaryTable(list):
             mapping[action_name] = combinations[i]
     return mapping
 
+def getArgsIndexes(name,aname):
+    fargs = getFunctionNameTerms(name)[1]
+    aargs = getFunctionNameTerms(aname)[1]
+    index_list=[]
+    for farg in fargs:
+        for j, aarg in enumerate(aargs):
+            if farg == aarg:
+                index_list.append(j)
+                break
+    return index_list
+
 
 
 class Encoder(object):
     """docstring for Encoder"""
 
-    def __init__(self, argv, bit):
+    def __init__(self, argv, type = 1):
         # This method initializes utility data and reads the input file;
         # It assumes all the constants of the problem are present in the
         # initial and goal states
@@ -118,7 +128,8 @@ class Encoder(object):
         self.sentence = []  # sentence at time t=h
         self.terms_list = []  # constants
         self.actions = []  # list of actions
-        self.bitwise = bit # True = bitwise, False = classical
+        self.bitwise = True if type == 2 else False
+        self.BOLS = True if type == 3 else False
         self.mapping = {} # DIMACS mapping
         self.file_string = argv[1] # input file name
         self.discarded_actions = []
@@ -240,25 +251,6 @@ class Encoder(object):
                         g_lit = GroundedLiteral(ident, False)
                         to_append.append(g_lit)
         self.init.extend(to_append)
-        # ninit = len(self.init)
-        # for i in range(ninit):
-        #     literal = self.init[i]
-        #     name, args = getFunctionNameTerms(literal.ident)
-        #     nargs = len(args)
-        #     combinations = generatePossibleSets(nargs, self.terms_list)
-        #     for comb in combinations:
-        #         flag = False
-        #         if comb != args:
-        #             ident = groundedLiteralNameGenerator(name, comb)
-        #             for glit in self.init:
-        #                 if ident == glit.ident:
-        #                     flag = True
-        #                     break
-        #             if flag:
-        #                 continue
-        #             else:
-        #                 g_lit = GroundedLiteral(ident, not literal.signal)
-        #                 self.init.append(g_lit)
         for literal in self.init:
             literal.indexGL(0)
             self.sentence.append([literal])
@@ -287,6 +279,47 @@ class Encoder(object):
             bits_list.append(bit_glit)
         return bits_list
 
+
+    def getSplittingBits(self):
+        nmax = max([len(action.args) for action in self.actions])
+        nbitsA = math.ceil(math.log(len(self.actions), 2))
+        nbitsA = 1 if nbitsA == 0 else nbitsA
+        nC = len(self.terms_list)
+        nbitsC = math.ceil(math.log(nC, 2))
+        nbitsC = 1 if nbitsC == 0 else nbitsC
+        return nmax, nbitsA, nbitsC
+
+    def generateBOLSmapping(self, alist):
+        names_actions = []
+        for action in self.actions:
+            names_actions.append(getFunctionNameTerms(action.name_template)[0])
+        nmax, nbitsA, nbitsC = self.getSplittingBits()
+        acts_map = generateBinaryTable(names_actions)
+        args_map = generateBinaryTable(self.terms_list)
+        mapping = {}
+        for action in alist:
+            if action not in mapping.keys():
+                name, args = getFunctionNameTerms(action)
+                sequence = list(acts_map[name])
+                for arg in args:
+                    sequence.extend(args_map[arg])
+                if len(args)< nmax:
+                    for i in range(nmax-len(args)):
+                        sequence.extend([False]*nbitsC)
+                mapping[action] = sequence
+        return mapping
+
+    def factoring(self,index_list, bits_list):
+        # keep only the bits that represent
+        # the arguments indexed in index_list
+        nmax, nbitsA, nbitsC = self.getSplittingBits()
+        used_bits = bits_list[0:nbitsA] # the action is always present
+        for i in index_list:
+            start = nbitsA+i*nbitsC
+            used_bits.extend(bits_list[start:start+nbitsC])
+        return used_bits
+
+
     def actionsImplications(self, t):
         # This function generates the clauses that correspond to the actions
         # implicating their preconditions and their effects;
@@ -309,6 +342,8 @@ class Encoder(object):
         # grounded action, because we know this action cannot be performed.
         if self.bitwise:
             mapping = generateBinaryTable(self.nameActions())
+        elif self.BOLS:
+            mapping = self.generateBOLSmapping(self.nameActions())
         for action in self.actions:
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
@@ -316,7 +351,7 @@ class Encoder(object):
                 conflict = False
                 efx_list=[]
                 aglit, aname = self.createIndexedActionLiteral(comb, action, False, t)
-                if self.bitwise:
+                if self.bitwise or self.BOLS:
                     bits_list = self.groundActionBits(mapping[aname], t)
                 for effect in action.efx:
                     name = mapAndSubstitute(comb, action.args, effect.ident_template)
@@ -329,7 +364,7 @@ class Encoder(object):
                             break
                     if conflict:
                         del(self.sentence[-len(efx_list):])
-                        if self.bitwise:
+                        if self.bitwise or self.BOLS:
                             self.sentence.append(bits_list)
                             self.discarded_actions.append(bits_list)
                         else:
@@ -337,7 +372,11 @@ class Encoder(object):
                         break
                     else:
                         efx_list.append(effect_glit)
-                        if self.bitwise:
+                        if self.BOLS:
+                           index_list =  getArgsIndexes(effect.ident_template,action.name_template)
+                           used_bits = self.factoring(index_list,bits_list)
+                           self.sentence.append(used_bits + [effect_glit])
+                        elif self.bitwise:
                             self.sentence.append(bits_list + [effect_glit])
                         else:
                             self.sentence.append([aglit, effect_glit])
@@ -355,7 +394,7 @@ class Encoder(object):
                             break
                     if conflict:
                         del (self.sentence[-len(precond_list):])
-                        if self.bitwise:
+                        if self.bitwise or self.BOLS:
                             self.sentence.append(bits_list)
                             self.discarded_actions.append(bits_list)
                         else:
@@ -363,7 +402,11 @@ class Encoder(object):
                         break
                     else:
                         precond_list.append(precond_glit)
-                        if self.bitwise:
+                        if self.BOLS:
+                           index_list =  getArgsIndexes(precond.ident_template,action.name_template)
+                           used_bits = self.factoring(index_list,bits_list)
+                           self.sentence.append(used_bits + [precond_glit])
+                        elif self.bitwise:
                             self.sentence.append(bits_list + [precond_glit])
                         else:
                             self.sentence.append([aglit, precond_glit])
@@ -386,12 +429,14 @@ class Encoder(object):
         # sign and 'glit2' the opposite sign to 'glit1'.
         if self.bitwise:
             mapping = generateBinaryTable(self.nameActions())
+        elif self.BOLS:
+            mapping = self.generateBOLSmapping(self.nameActions())
         for action in self.actions:
             nargs = len(action.args)
             combinations = generatePossibleSets(nargs, self.terms_list)
             for comb in combinations:
                 aglit, aname = self.createIndexedActionLiteral(comb, action, False, t)
-                if not self.bitwise:
+                if not (self.bitwise or self.BOLS):
                     if aglit in self.discarded_actions:
                         continue
                 else:
@@ -417,10 +462,27 @@ class Encoder(object):
                                 glit2 = -glit1
                                 glit1.indexGL(t)
                                 glit2.indexGL(t + 1)
-                                if self.bitwise:
+                                if self.BOLS:
+                                    #self.sentence.append(bits_list + [glit1,glit2])
+                                    if pred[0] not in modified.keys():
+                                        used_bits = self.factoring([], bits_list)
+                                        self.sentence.append(used_bits + [glit1, glit2])
+                                    else:
+                                        index_list = []
+                                        for effect in action.efx:
+                                            ef_pred = effect.checkSign(effect.ident_template)[1]
+                                            ef_pred = getFunctionNameTerms(ef_pred)[0]
+                                            if ef_pred == pred[0]:
+                                                index_list.extend(getArgsIndexes(effect.ident_template,
+                                                                            action.name_template))
+                                        index_list = list(set(index_list))
+                                        used_bits = self.factoring(index_list,bits_list)
+                                        self.sentence.append(used_bits + [glit1, glit2])
+                                elif self.bitwise:
                                     self.sentence.append(bits_list + [glit1,glit2])
                                 else:
                                     self.sentence.append([aglit, glit1, glit2])
+
 
     def areActionsConflicting(self,aglit1,aglit2):
         name1, terms1 = getFunctionNameTerms(aglit1.ident)
@@ -527,12 +589,12 @@ class Encoder(object):
         # For this reason, the unassigned binary sequences must correspond
         # to clauses that make those sequences False
         list_actions = self.nameActions()
-        mapping = generateBinaryTable(list_actions)
-        nvars = len(list_actions)
-        nbin = math.ceil(math.log(nvars, 2))
-        if nbin == 0:
-            nbin = 1
-        combinations = generatePossibleSets(nbin, [True, False])
+        if self.bitwise:
+            mapping = generateBinaryTable(list_actions)
+        elif self.BOLS:
+            mapping = self.generateBOLSmapping(list_actions)
+        nbits = len(mapping[list_actions[0]])
+        combinations = generatePossibleSets(nbits, [True, False])
         for comb in combinations:
             if comb not in mapping.values():
                 bits_list = self.groundActionBits(comb, t)
@@ -569,7 +631,7 @@ class Encoder(object):
         for lit in lits:
             if lit.ident not in self.mapping.keys():
                 self.mapping[lit.ident] = len(self.mapping) + 1
-        filename = 'dimacs' + '.dat'#('_%s'%t) + '.dat'
+        filename = 'dimacs' + '.dat'#'('%s'%t) + '.dat'
         f = open(filename, 'w')
         f.write('c 75398 76312\n')
         nvars = len(self.mapping)
@@ -598,7 +660,7 @@ class Encoder(object):
         self.actionsImplications(t)
         # Atoms not modified by an action are propagated in time
         self.propagateSteadyStates(t)
-        if self.bitwise:
+        if self.bitwise or self.BOLS:
             # If using bitwise representation, negate the unused assignments
             self.negateUnassignedActions(t)
         else:
@@ -629,10 +691,13 @@ class Encoder(object):
         print('-----------------')
         print('Problem solution:')
         print('-----------------')
-        if self.bitwise: # for the bitwise representation of actions
+        if self.bitwise or self.BOLS: # for the bitwise representation of actions
             list_actions = self.nameActions() # get actions' names
-            bin_table = generateBinaryTable(list_actions) # generate mapping actions-binary numbers
-            nbits = len(list(bin_table.values())[0])
+            if self.bitwise:
+                bin_table = generateBinaryTable(list_actions) # generate mapping actions-binary numbers
+            else:
+                bin_table = self.generateBOLSmapping(list_actions) # generate mapping actions-binary numbers
+            nbits = len(bin_table[list_actions[0]])
             for h in range(t + 1):
                 current_action = [False] * nbits
                 for var in vars: # for every variable assigned True

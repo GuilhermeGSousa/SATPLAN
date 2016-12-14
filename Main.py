@@ -3,7 +3,8 @@ from Encoder import *
 from Solver import *
 
 def satPlan(argv):
-    encoder = Encoder(argv, False)
+    # 1 - Classical ; 2 - Bitwise ; 3 - Bitwise Overloaded Splitting with factoring
+    encoder = Encoder(argv, 1)
     t = 0
     while True:
         encoder.generateSentence(t)
