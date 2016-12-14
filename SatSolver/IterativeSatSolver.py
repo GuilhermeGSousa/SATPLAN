@@ -49,7 +49,7 @@ def deduceStatus(changed,clauses, symbols, model):
     res, clause = isAnyClauseFalse(clauses, model)
     
     if res:
-        #learnConflict(clause,clauses,changed,model)
+        learnConflict(clause,clauses,changed,model)
         model.success = False
         return ["CONFLICT", changes]
 
@@ -71,14 +71,10 @@ def deduceStatus(changed,clauses, symbols, model):
 
 def learnConflict(con_clause,clauses,changed,model): 
     new_clause=[]
-    for l in con_clause:
-        for key in changed.keys():
-            if l.name in changed[key]:
-                new_clause.append(Variable(changed[key][0],not model[changed[key][0]]))
-                break
-    # for key in changed.keys():
-    #     if key > 0:
-    #        new_clause.append(Variable(changed[key][0],not model[changed[key][0]])) 
+
+    for key in changed.keys():
+        if key > 0:
+           new_clause.append(Variable(changed[key][0],not model[changed[key][0]])) 
     clauses.append(new_clause)
 
 
@@ -157,17 +153,7 @@ def solveIterativeCNF(clauses, symbols, model=Solution()):
             blvl = analyzeConflict(branched, changed, model, lvl)
             if blvl < 0:
                 return [False, model]
-            
-            # if backtracks>1:
-            #     print("Restarting")
-            #     backtrackToLevel(branched,changed,symbols,model,0,lvl)
-            #     backtracks=0
-            #     tmp=changed[0]
-            #     changed.clear()
-            #     changed[0]=tmp
-            #     lvl=0
-            # else:
-            #     backtracks+=1
+
             backtrackToLevel(branched, changed, symbols, model, blvl, lvl)
             lvl = blvl
         elif status == "SAT":
