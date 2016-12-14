@@ -36,7 +36,7 @@ class CNF(object):
 
 def readCnf(file_name):
 	symbols=[]
-	clauses=set([]) #Cant be frozen to be able to learn
+	clauses=[]#Cant be frozen to be able to learn
 	f=open(file_name)
 
 	for line in f:
@@ -58,7 +58,7 @@ def readCnf(file_name):
 						else:
 							obj_list.append(Variable(int(w),True))
 
-				clauses.add(frozenset(obj_list))
+				clauses.append(obj_list)
 	f.close()
 
 	return [clauses, symbols]
